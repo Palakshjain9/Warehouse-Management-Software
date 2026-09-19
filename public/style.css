@@ -276,6 +276,118 @@ tr.row-ended td { color: var(--muted); }
 .table-wrap.compact table { font-size: 13px; }
 .table-wrap.compact th, .table-wrap.compact td { padding: 8px 10px; }
 
+/* ---- Space calculator ---- */
+.intro-line {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+  max-width: 620px;
+}
+
+.calc-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.field-group { margin-bottom: 16px; }
+.group-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+.radio-row { display: flex; gap: 18px; flex-wrap: wrap; }
+.radio-row label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+
+.field-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.field-row:last-child { margin-bottom: 0; }
+
+.field-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  flex: 0 1 132px;
+}
+
+.field-row label.grow { flex: 1 1 230px; }
+.field-row label.wide { flex: 0 1 175px; }
+
+.field-row input, .field-row select {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.unit-suffix {
+  font-size: 13px;
+  color: var(--muted);
+  padding-bottom: 10px;
+}
+
+.result-headline {
+  margin-top: 20px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.result-value { font-size: 30px; font-weight: 600; }
+.result-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.notice {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.warn-notice { background: #fdeeea; color: #8c2c1f; border: 1px solid #f3cfc7; }
+.warn-notice button { margin-left: 6px; padding: 4px 10px; font-size: 13px; }
+
+.fit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.fit-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  border-left: 3px solid transparent;
+}
+
+.fit-list li:last-child { border-bottom: none; }
+.fit-list li > span:first-child { font-weight: 500; flex: 1 1 auto; }
+.fit-note { font-size: 13px; text-align: right; }
+.fit-yes { border-left-color: var(--good); }
+.fit-yes .fit-note { color: var(--good); }
+.fit-no .fit-note { color: var(--muted); }
+
 /* ---- Toast ---- */
 #toast {
   position: fixed;
@@ -346,4 +458,11 @@ tr.row-ended td { color: var(--muted); }
 
   .calc-row { font-size: 13px; }
   .modal-actions button { flex: 1 1 auto; }
+
+  .field-row label, .field-row label.grow { flex: 1 1 100%; }
+  .field-row { gap: 10px; }
+  .unit-suffix { padding-bottom: 0; }
+  .result-value { font-size: 26px; }
+  .fit-list li { flex-wrap: wrap; }
+  .fit-note { flex: 1 1 100%; text-align: left; }
 }

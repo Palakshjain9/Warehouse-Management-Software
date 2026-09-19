@@ -305,6 +305,8 @@ function openLeaseEdit(id) {
 async function refreshAll() {
   await Promise.all([loadZones(), loadVendors(), loadLeases()]);
   await loadDashboard();
+  refreshRateHint();
+  renderCalcResults();
 }
 
 async function submitForm(form, errorEl, request) {
@@ -341,6 +343,11 @@ const actions = {
   'vendor-edit': id => openVendorEdit(id),
   'lease-edit': id => openLeaseEdit(id),
   'modal-cancel': () => closeModal(),
+
+  'apply-max-stack'(maxStack) {
+    $('#calc-form').stack.value = maxStack;
+    renderCalcResults();
+  },
 
   async 'zone-delete'(id) {
     const z = state.zones.find(x => x.id === Number(id));
@@ -435,6 +442,239 @@ document.addEventListener('submit', async e => {
   }
 });
 
+// ---- Space calculator ----
+const M_TO_FT = 3.280839895;
+const CBM_TO_CUFT = 35.3146667;
+
+// Starting points only — every dimension stays editable, because real stock varies.
+const ITEM_PRESETS = [
+  { id: 'pallet-std', label: 'Pallet, standard (1200 × 1000 mm)', l: 1.2, w: 1.0, h: 1.2 },
+  { id: 'pallet-euro', label: 'Pallet, euro (1200 × 800 mm)', l: 1.2, w: 0.8, h: 1.2 },
+  { id: 'bale', label: 'Pressed bale (1100 × 550 mm)', l: 1.1, w: 0.55, h: 0.7 },
+  { id: 'carton-lg', label: 'Carton, large (600 × 400 mm)', l: 0.6, w: 0.4, h: 0.4 },
+  { id: 'carton-sm', label: 'Carton, small (400 × 300 mm)', l: 0.4, w: 0.3, h: 0.3 },
+  { id: 'drum', label: 'Drum, 200 litre (ø 580 mm)', l: 0.58, w: 0.58, h: 0.89 },
+  { id: 'custom', label: 'Something else — I’ll type the size', l: null, w: null, h: null },
+];
+
+function sqft(n) {
+  return Number(n).toLocaleString(LOCALE, { maximumFractionDigits: n < 100 ? 1 : 0 });
+}
+
+function calcInputs() {
+  return Object.fromEntries(new FormData($('#calc-form')).entries());
+}
+
+function computeEstimate(d) {
+  const util = Number(d.utilisation) || 0.7;
+  const clearHeight = Number(d.clear_height) || 0;
+  let storageSqft;
+  let stackHeightFt;
+  let detail;
+
+  if (d.mode === 'items') {
+    const toFt = d.dim_unit === 'm' ? M_TO_FT : 1;
+    const l = Number(d.item_l) * toFt;
+    const w = Number(d.item_w) * toFt;
+    const h = Number(d.item_h) * toFt;
+    const qty = Math.floor(Number(d.quantity) || 0);
+    const stack = Math.max(1, Math.floor(Number(d.stack) || 1));
+    if (!(l > 0 && w > 0 && h > 0 && qty > 0)) return null;
+
+    const unitFootprint = l * w;
+    const positions = Math.ceil(qty / stack);
+    storageSqft = positions * unitFootprint;
+    stackHeightFt = stack * h;
+    detail = {
+      qty, stack, positions, unitFootprint, unitHeightFt: h,
+      maxStack: clearHeight > 0 ? Math.floor(clearHeight / h) : null,
+    };
+  } else {
+    const cuft = Number(d.volume) * (d.vol_unit === 'cbm' ? CBM_TO_CUFT : 1);
+    stackHeightFt = Number(d.vol_stack_ft) || 0;
+    if (!(cuft > 0 && stackHeightFt > 0)) return null;
+    storageSqft = cuft / stackHeightFt;
+    detail = { cuft };
+  }
+
+  const totalSqft = storageSqft / util;
+  return {
+    mode: d.mode,
+    util, clearHeight, storageSqft, stackHeightFt, totalSqft,
+    aisleSqft: totalSqft - storageSqft,
+    heightOk: clearHeight <= 0 || stackHeightFt <= clearHeight,
+    rate: Number(d.rate_sqft) || 0,
+    ...detail,
+  };
+}
+
+function averageRatePerSqft() {
+  const sizes = new Map(state.zones.map(z => [z.id, z.size_sqft]));
+  const active = state.leases.filter(l => !l.end_date && sizes.get(l.zone_id) > 0);
+  if (!active.length) return null;
+  return active.reduce((sum, l) => sum + l.daily_rate / sizes.get(l.zone_id), 0) / active.length;
+}
+
+function matchZones(needed) {
+  const vacant = state.zones.filter(z => !z.active_lease_id && Number(z.size_sqft) > 0);
+  const fits = vacant.filter(z => z.size_sqft >= needed).sort((a, b) => a.size_sqft - b.size_sqft);
+  const short = vacant.filter(z => z.size_sqft < needed).sort((a, b) => b.size_sqft - a.size_sqft);
+
+  let combo = null;
+  if (!fits.length && short.length) {
+    const picked = [];
+    let sum = 0;
+    for (const z of short) {
+      picked.push(z);
+      sum += z.size_sqft;
+      if (sum >= needed) break;
+    }
+    if (sum >= needed) combo = { zones: picked, total: sum };
+  }
+  return { vacant, fits, short, combo };
+}
+
+function renderCalcResults() {
+  const box = $('#calc-results');
+  const est = computeEstimate(calcInputs());
+
+  if (!est) {
+    box.innerHTML = '<p class="muted-line">Fill in a quantity and the size of one item to see an estimate.</p>';
+    return;
+  }
+
+  const working = est.mode === 'items'
+    ? `
+      <div class="calc-row"><span>One ${est.stack > 1 ? 'item' : 'item'} takes up</span><span>${sqft(est.unitFootprint)} sq ft of floor</span></div>
+      <div class="calc-row"><span>Stacked ${est.stack} high, that needs</span><span>${est.positions.toLocaleString(LOCALE)} floor position${est.positions === 1 ? '' : 's'} <em>= ${est.qty.toLocaleString(LOCALE)} ÷ ${est.stack}, rounded up</em></span></div>
+      <div class="calc-row calc-sum"><span>Storage footprint</span><span>${sqft(est.storageSqft)} sq ft <em>= ${est.positions} × ${sqft(est.unitFootprint)}</em></span></div>`
+    : `
+      <div class="calc-row"><span>Goods volume</span><span>${sqft(est.cuft)} cu ft</span></div>
+      <div class="calc-row"><span>Stacked up to</span><span>${est.stackHeightFt} ft high</span></div>
+      <div class="calc-row calc-sum"><span>Storage footprint</span><span>${sqft(est.storageSqft)} sq ft <em>= ${sqft(est.cuft)} ÷ ${est.stackHeightFt}</em></span></div>`;
+
+  const heightNote = est.heightOk
+    ? `<div class="calc-row"><span>Stack height</span><span>${est.stackHeightFt.toFixed(1)} ft — fits under ${est.clearHeight} ft ✓</span></div>`
+    : '';
+
+  const heightWarning = est.heightOk ? '' : `
+    <div class="notice warn-notice">
+      <strong>That stack is too tall.</strong>
+      Stacking ${est.mode === 'items' ? `${est.stack} high at ${est.unitHeightFt.toFixed(1)} ft each` : ''}
+      needs ${est.stackHeightFt.toFixed(1)} ft, but the shed is ${est.clearHeight} ft clear.
+      ${est.mode === 'items' && est.maxStack >= 1
+        ? `You could stack ${est.maxStack} high instead.
+           <button data-action="apply-max-stack" data-id="${est.maxStack}">Use ${est.maxStack} high</button>`
+        : 'Lower the stack height to fit.'}
+    </div>`;
+
+  const rentBlock = est.rate > 0 ? `
+    <div class="calc-block">
+      <div class="calc-row"><span>At ${money(est.rate)} per sq ft per day</span><span>${money(Math.round(est.totalSqft * est.rate))} / day</span></div>
+      <div class="calc-row calc-total"><span>Roughly per 30 days</span><span>${money(Math.round(est.totalSqft * est.rate * 30))}</span></div>
+    </div>` : '';
+
+  const { vacant, fits, short, combo } = matchZones(est.totalSqft);
+
+  let zoneBlock;
+  if (!vacant.length) {
+    zoneBlock = '<p class="muted-line">No vacant zones with a recorded size to compare against right now.</p>';
+  } else {
+    const rows = [
+      ...fits.map(z => `<li class="fit-yes">
+          <span>${escapeHtml(z.name)}</span>
+          <span>${sqft(z.size_sqft)} sq ft</span>
+          <span class="fit-note">Fits — ${sqft(z.size_sqft - est.totalSqft)} sq ft to spare</span>
+        </li>`),
+      ...short.map(z => `<li class="fit-no">
+          <span>${escapeHtml(z.name)}</span>
+          <span>${sqft(z.size_sqft)} sq ft</span>
+          <span class="fit-note">${sqft(est.totalSqft - z.size_sqft)} sq ft short</span>
+        </li>`),
+    ].join('');
+
+    const comboNote = combo ? `
+      <p class="muted-line">No single zone is big enough, but
+      ${combo.zones.map(z => escapeHtml(z.name)).join(' + ')}
+      together come to ${sqft(combo.total)} sq ft, which would cover it.
+      Worth checking they're next to each other.</p>` : '';
+
+    const noneNote = !fits.length && !combo
+      ? '<p class="muted-line">Nothing currently vacant is big enough, even combined.</p>' : '';
+
+    zoneBlock = `<ul class="fit-list">${rows}</ul>${comboNote}${noneNote}`;
+  }
+
+  box.innerHTML = `
+    <div class="result-headline">
+      <div class="result-value">${sqft(est.totalSqft)} sq ft</div>
+      <div class="result-sub">floor area to look for</div>
+    </div>
+
+    ${heightWarning}
+
+    <div class="calc-block">
+      ${working}
+      <div class="calc-row"><span>Aisles &amp; access</span><span>+ ${sqft(est.aisleSqft)} sq ft <em>at ${Math.round(est.util * 100)}% usable</em></span></div>
+      <div class="calc-row calc-total"><span>Total area needed</span><span>${sqft(est.totalSqft)} sq ft</span></div>
+      ${heightNote}
+    </div>
+
+    ${rentBlock}
+
+    <h4>Against your vacant zones</h4>
+    ${zoneBlock}
+  `;
+}
+
+function applyPreset() {
+  const preset = ITEM_PRESETS.find(p => p.id === $('#calc-preset').value);
+  if (!preset || preset.id === 'custom') return;
+  const form = $('#calc-form');
+  form.dim_unit.value = 'm';
+  form.item_l.value = preset.l;
+  form.item_w.value = preset.w;
+  form.item_h.value = preset.h;
+}
+
+function syncCalcMode() {
+  const mode = calcInputs().mode;
+  $('#mode-items').classList.toggle('hidden', mode !== 'items');
+  $('#mode-volume').classList.toggle('hidden', mode !== 'volume');
+}
+
+function refreshRateHint() {
+  const avg = averageRatePerSqft();
+  const hint = $('#rate-hint');
+  const input = $('#calc-form').rate_sqft;
+  if (avg) {
+    hint.textContent = `₹ per sq ft per day · your active leases average ${avg.toFixed(2)}`;
+    if (!input.value) input.value = avg.toFixed(2);
+  } else {
+    hint.textContent = '₹ per sq ft per day';
+  }
+}
+
+function initCalculator() {
+  $('#calc-preset').innerHTML = ITEM_PRESETS
+    .map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+  applyPreset();
+  syncCalcMode();
+
+  // Only 'input' — a 'change' listener here would re-render on blur, destroying any
+  // result button mid-click before the browser can synthesise the click event.
+  $('#calc-form').addEventListener('input', e => {
+    if (e.target.name === 'preset') applyPreset();
+    if (e.target.name === 'mode') syncCalcMode();
+    if (['item_l', 'item_w', 'item_h'].includes(e.target.name)) {
+      $('#calc-preset').value = 'custom';
+    }
+    renderCalcResults();
+  });
+
+  $('#calc-form').addEventListener('submit', e => e.preventDefault());
+}
+
 // ---- Wiring ----
 document.addEventListener('DOMContentLoaded', () => {
   $all('.tab-btn').forEach(btn => {
@@ -447,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   $('#lease-form').start_date.value = todayStr();
+  initCalculator();
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', e => {
     if (e.target.id === 'modal-backdrop') closeModal();

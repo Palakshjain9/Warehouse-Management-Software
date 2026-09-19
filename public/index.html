@@ -14,6 +14,7 @@
     <button class="tab-btn" data-tab="zones">Zones</button>
     <button class="tab-btn" data-tab="vendors">Vendors</button>
     <button class="tab-btn" data-tab="leases">Leases</button>
+    <button class="tab-btn" data-tab="calculator">Space calculator</button>
   </nav>
 </header>
 
@@ -141,6 +142,98 @@
         <tbody></tbody>
       </table>
     </div>
+  </section>
+
+  <section id="calculator" class="tab-panel">
+    <h2>How much space will you need?</h2>
+    <p class="intro-line">
+      Describe what you're storing and this works out the floor area, checks it against
+      the height of the shed, and tells you which of the vacant zones it would fit in.
+    </p>
+
+    <form id="calc-form" class="calc-form" autocomplete="off">
+      <div class="field-group">
+        <span class="group-label">Work it out from</span>
+        <div class="radio-row">
+          <label><input type="radio" name="mode" value="items" checked> A count of items</label>
+          <label><input type="radio" name="mode" value="volume"> A total volume</label>
+        </div>
+      </div>
+
+      <div id="mode-items">
+        <div class="field-row">
+          <label class="grow">What are you storing?
+            <select name="preset" id="calc-preset"></select>
+          </label>
+          <label>How many?
+            <input type="number" name="quantity" value="100" min="1" step="1">
+          </label>
+          <label class="wide">Stacked how many high?
+            <input type="number" name="stack" value="3" min="1" step="1">
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label>Length
+            <input type="number" name="item_l" step="any" min="0">
+          </label>
+          <label>Width
+            <input type="number" name="item_w" step="any" min="0">
+          </label>
+          <label>Height (loaded)
+            <input type="number" name="item_h" step="any" min="0">
+          </label>
+          <label>Units
+            <select name="dim_unit">
+              <option value="m">metres</option>
+              <option value="ft">feet</option>
+            </select>
+          </label>
+        </div>
+
+      </div>
+
+      <div id="mode-volume" class="hidden">
+        <div class="field-row">
+          <label>Total volume
+            <input type="number" name="volume" value="50" min="0" step="any">
+          </label>
+          <label>Units
+            <select name="vol_unit">
+              <option value="cbm">cubic metres (CBM)</option>
+              <option value="cuft">cubic feet</option>
+            </select>
+          </label>
+          <label>Stack up to
+            <input type="number" name="vol_stack_ft" value="10" min="0.1" step="any">
+          </label>
+          <span class="unit-suffix">ft high</span>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <label class="grow">Aisles &amp; access
+          <select name="utilisation">
+            <option value="0.8">Tight — 80% of floor usable</option>
+            <option value="0.7" selected>Normal — 70% of floor usable</option>
+            <option value="0.6">Generous — 60% of floor usable</option>
+          </select>
+        </label>
+        <label>Clear height of shed
+          <input type="number" name="clear_height" value="20" min="1" step="any">
+        </label>
+        <span class="unit-suffix">ft</span>
+      </div>
+
+      <div class="field-row">
+        <label class="grow">Indicative rate
+          <input type="number" name="rate_sqft" step="any" min="0" placeholder="per sq ft per day">
+        </label>
+        <span class="unit-suffix" id="rate-hint"></span>
+      </div>
+    </form>
+
+    <div id="calc-results"></div>
   </section>
 
 </main>

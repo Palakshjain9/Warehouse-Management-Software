@@ -19,6 +19,23 @@ version built to test the idea with real numbers before adding more features.
 - **Dashboard** — occupancy, total daily rent from active leases, and total
   outstanding dues across all leases.
 
+### Space calculator
+
+A separate tab for sizing an enquiry before it becomes a lease. Describe the goods
+either as a count of items (pick a preset or type the dimensions, say how high they
+stack) or as a total volume in CBM, and it works out:
+
+- the floor footprint, from `items ÷ stack height`, rounded up to whole positions
+- an aisle and access allowance (60/70/80% of floor usable)
+- whether the stack clears the height of the shed, and the tallest stack that would
+- the indicative rent, at a rate defaulted to the average ₹/sq ft/day across your own
+  active leases rather than an invented market figure
+- which of your currently vacant zones it fits in, or which combination would cover it
+
+Every line shows its working, so a vendor can check the number rather than trust it.
+The item presets are typical starting points, not gospel — all dimensions stay
+editable, and typing over one switches the preset to "Something else".
+
 ### Sample data
 
 The dashboard has a **Load sample data** button (and a **Clear everything** button
