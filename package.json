@@ -1,0 +1,25 @@
+{
+  "name": "warehouse-management-software",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Palakshjain9/Warehouse-Management-Software.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Palakshjain9/Warehouse-Management-Software/issues"
+  },
+  "homepage": "https://github.com/Palakshjain9/Warehouse-Management-Software#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

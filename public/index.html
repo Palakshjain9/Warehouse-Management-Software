@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse Rental</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Warehouse Rental</h1>
+  <nav>
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="zones">Zones</button>
+    <button class="tab-btn" data-tab="vendors">Vendors</button>
+    <button class="tab-btn" data-tab="leases">Leases</button>
+  </nav>
+</header>
+
+<main>
+
+  <section id="dashboard" class="tab-panel active">
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-zones">–</div>
+        <div class="stat-label">Total zones</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-occupied">–</div>
+        <div class="stat-label">Occupied</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-vacant">–</div>
+        <div class="stat-label">Vacant</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-sqft">–</div>
+        <div class="stat-label">Total sq ft</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-value" id="stat-revenue">–</div>
+        <div class="stat-label">Daily revenue (active leases)</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-value" id="stat-outstanding">–</div>
+        <div class="stat-label">Outstanding dues</div>
+      </div>
+    </div>
+
+    <h2>Active leases</h2>
+    <div class="table-wrap">
+      <table id="active-leases-table">
+        <thead>
+          <tr>
+            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="zones" class="tab-panel">
+    <h2>Add a zone</h2>
+    <form id="zone-form" class="inline-form">
+      <input type="text" name="name" placeholder="Zone name (e.g. Bay A1)" required>
+      <input type="number" name="size_sqft" placeholder="Size (sq ft)" min="0" step="any">
+      <input type="text" name="notes" placeholder="Notes (optional)">
+      <button type="submit">Add zone</button>
+    </form>
+    <p class="error" id="zone-error"></p>
+
+    <h2>All zones</h2>
+    <div class="table-wrap">
+      <table id="zones-table">
+        <thead>
+          <tr><th>Name</th><th>Size (sq ft)</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="vendors" class="tab-panel">
+    <h2>Add a vendor</h2>
+    <form id="vendor-form" class="inline-form">
+      <input type="text" name="name" placeholder="Vendor name" required>
+      <input type="text" name="contact" placeholder="Contact (phone/email)">
+      <input type="text" name="notes" placeholder="Notes (optional)">
+      <button type="submit">Add vendor</button>
+    </form>
+    <p class="error" id="vendor-error"></p>
+
+    <h2>All vendors</h2>
+    <div class="table-wrap">
+      <table id="vendors-table">
+        <thead>
+          <tr><th>Name</th><th>Contact</th><th>Notes</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="leases" class="tab-panel">
+    <h2>Create a lease</h2>
+    <form id="lease-form" class="inline-form">
+      <select name="zone_id" id="lease-zone-select" required></select>
+      <select name="vendor_id" id="lease-vendor-select" required></select>
+      <input type="number" name="daily_rate" placeholder="Rate/day" min="0" step="any" required>
+      <input type="date" name="start_date" required>
+      <button type="submit">Create lease</button>
+    </form>
+    <p class="error" id="lease-error"></p>
+
+    <h2>All leases</h2>
+    <div class="table-wrap">
+      <table id="leases-table">
+        <thead>
+          <tr>
+            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th><th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<div id="modal-backdrop" class="hidden">
+  <div id="modal">
+    <h3 id="modal-title">Record payment</h3>
+    <form id="payment-form">
+      <input type="hidden" name="lease_id">
+      <label>Amount<input type="number" name="amount" min="0" step="any" required></label>
+      <label>Date<input type="date" name="paid_date" required></label>
+      <label>Notes<input type="text" name="notes"></label>
+      <p class="error" id="payment-error"></p>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel">Cancel</button>
+        <button type="submit">Save payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
