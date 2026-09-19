@@ -4,9 +4,17 @@ import { daysOccupied, accruedRent, todayStr } from '../calc.js';
 
 const router = Router();
 
-function paidMap() {
-  const rows = db.prepare('SELECT lease_id, SUM(amount) AS total FROM payments GROUP BY lease_id').all();
-  return new Map(rows.map(r => [r.lease_id, r.total]));
+function withTotals(lease) {
+  const accrued = accruedRent(lease);
+  const paid = db.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE lease_id = ?')
+    .get(lease.id).total;
+  return {
+    ...lease,
+    days_occupied: daysOccupied(lease.start_date, lease.end_date),
+    accrued,
+    paid,
+    balance: accrued - paid,
+  };
 }
 
 router.get('/', (req, res) => {
@@ -18,8 +26,12 @@ router.get('/', (req, res) => {
     ORDER BY (l.end_date IS NOT NULL), l.start_date DESC, l.id DESC
   `).all();
 
-  const paid = paidMap();
-  const leases = rows.map(l => {
+  const paid = new Map(
+    db.prepare('SELECT lease_id, SUM(amount) AS total FROM payments GROUP BY lease_id').all()
+      .map(r => [r.lease_id, r.total])
+  );
+
+  res.json(rows.map(l => {
     const accrued = accruedRent(l);
     const paidTotal = paid.get(l.id) || 0;
     return {
@@ -29,15 +41,23 @@ router.get('/', (req, res) => {
       paid: paidTotal,
       balance: accrued - paidTotal,
     };
-  });
-
-  res.json(leases);
+  }));
 });
 
-router.get('/:id/payments', (req, res) => {
+router.get('/:id', (req, res) => {
+  const lease = db.prepare(`
+    SELECT l.*, z.name AS zone_name, z.size_sqft, v.name AS vendor_name, v.contact AS vendor_contact
+    FROM leases l
+    JOIN zones z ON z.id = l.zone_id
+    JOIN vendors v ON v.id = l.vendor_id
+    WHERE l.id = ?
+  `).get(req.params.id);
+  if (!lease) return res.status(404).json({ error: 'Lease not found' });
+
   const payments = db.prepare('SELECT * FROM payments WHERE lease_id = ? ORDER BY paid_date DESC, id DESC')
     .all(req.params.id);
-  res.json(payments);
+
+  res.json({ ...withTotals(lease), billed_through: lease.end_date ?? todayStr(), payments });
 });
 
 router.post('/', (req, res) => {
@@ -60,6 +80,44 @@ router.post('/', (req, res) => {
   res.status(201).json({ id: Number(info.lastInsertRowid) });
 });
 
+router.patch('/:id', (req, res) => {
+  const lease = db.prepare('SELECT * FROM leases WHERE id = ?').get(req.params.id);
+  if (!lease) return res.status(404).json({ error: 'Lease not found' });
+
+  const body = req.body ?? {};
+  const rate = body.daily_rate === undefined ? lease.daily_rate : Number(body.daily_rate);
+  if (!(rate > 0)) return res.status(400).json({ error: 'Daily rate must be greater than zero' });
+
+  const startDate = body.start_date === undefined ? lease.start_date : body.start_date;
+  if (!startDate) return res.status(400).json({ error: 'Start date is required' });
+
+  const endDate = body.end_date === undefined ? lease.end_date : (body.end_date || null);
+  if (endDate && endDate < startDate) {
+    return res.status(400).json({ error: 'End date cannot be before the start date' });
+  }
+
+  if (!endDate && lease.end_date) {
+    const active = db.prepare('SELECT id FROM leases WHERE zone_id = ? AND end_date IS NULL AND id != ?')
+      .get(lease.zone_id, lease.id);
+    if (active) {
+      return res.status(400).json({ error: 'That zone already has another active lease, so this one cannot be reopened.' });
+    }
+  }
+
+  db.prepare('UPDATE leases SET daily_rate = ?, start_date = ?, end_date = ? WHERE id = ?')
+    .run(rate, startDate, endDate, req.params.id);
+  res.json({ ok: true });
+});
+
+router.delete('/:id', (req, res) => {
+  const lease = db.prepare('SELECT * FROM leases WHERE id = ?').get(req.params.id);
+  if (!lease) return res.status(404).json({ error: 'Lease not found' });
+
+  db.prepare('DELETE FROM payments WHERE lease_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM leases WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 router.post('/:id/end', (req, res) => {
   const lease = db.prepare('SELECT * FROM leases WHERE id = ?').get(req.params.id);
   if (!lease) return res.status(404).json({ error: 'Lease not found' });
@@ -72,6 +130,12 @@ router.post('/:id/end', (req, res) => {
 
   db.prepare('UPDATE leases SET end_date = ? WHERE id = ?').run(endDate, req.params.id);
   res.json({ ok: true });
+});
+
+router.get('/:id/payments', (req, res) => {
+  const payments = db.prepare('SELECT * FROM payments WHERE lease_id = ? ORDER BY paid_date DESC, id DESC')
+    .all(req.params.id);
+  res.json(payments);
 });
 
 router.post('/:id/payments', (req, res) => {

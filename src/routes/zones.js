@@ -34,4 +34,43 @@ router.post('/', (req, res) => {
   }
 });
 
+router.patch('/:id', (req, res) => {
+  const zone = db.prepare('SELECT * FROM zones WHERE id = ?').get(req.params.id);
+  if (!zone) return res.status(404).json({ error: 'Zone not found' });
+
+  const { name, size_sqft, notes } = req.body ?? {};
+  const newName = name === undefined ? zone.name : String(name).trim();
+  if (!newName) return res.status(400).json({ error: 'Name is required' });
+
+  try {
+    db.prepare('UPDATE zones SET name = ?, size_sqft = ?, notes = ? WHERE id = ?').run(
+      newName,
+      size_sqft === undefined ? zone.size_sqft : (size_sqft ? Number(size_sqft) : null),
+      notes === undefined ? zone.notes : (notes || null),
+      req.params.id
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) {
+      return res.status(400).json({ error: 'A zone with that name already exists' });
+    }
+    throw e;
+  }
+});
+
+router.delete('/:id', (req, res) => {
+  const zone = db.prepare('SELECT * FROM zones WHERE id = ?').get(req.params.id);
+  if (!zone) return res.status(404).json({ error: 'Zone not found' });
+
+  const leaseCount = db.prepare('SELECT COUNT(*) AS c FROM leases WHERE zone_id = ?').get(req.params.id).c;
+  if (leaseCount > 0) {
+    return res.status(400).json({
+      error: `This zone has ${leaseCount} lease${leaseCount === 1 ? '' : 's'} on record. Delete those first if you really want it gone.`,
+    });
+  }
+
+  db.prepare('DELETE FROM zones WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 export default router;

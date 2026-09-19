@@ -20,43 +20,59 @@
 <main>
 
   <section id="dashboard" class="tab-panel active">
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-value" id="stat-zones">–</div>
-        <div class="stat-label">Total zones</div>
+    <div id="empty-state" class="empty-state hidden">
+      <h2>Nothing in here yet</h2>
+      <p>Load a sample warehouse to see how it all works — six zones, four vendors,
+         active and closed leases with part-payments already on the books.</p>
+      <button class="primary" data-action="seed">Load sample data</button>
+    </div>
+
+    <div id="dashboard-content">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-zones">–</div>
+          <div class="stat-label">Total zones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-occupied">–</div>
+          <div class="stat-label">Occupied</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-vacant">–</div>
+          <div class="stat-label">Vacant</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-sqft">–</div>
+          <div class="stat-label">Total sq ft</div>
+        </div>
+        <div class="stat-card highlight">
+          <div class="stat-value" id="stat-revenue">–</div>
+          <div class="stat-label">Rent per day (active leases)</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-value" id="stat-outstanding">–</div>
+          <div class="stat-label">Outstanding dues</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-occupied">–</div>
-        <div class="stat-label">Occupied</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-vacant">–</div>
-        <div class="stat-label">Vacant</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="stat-sqft">–</div>
-        <div class="stat-label">Total sq ft</div>
-      </div>
-      <div class="stat-card highlight">
-        <div class="stat-value" id="stat-revenue">–</div>
-        <div class="stat-label">Daily revenue (active leases)</div>
-      </div>
-      <div class="stat-card warn">
-        <div class="stat-value" id="stat-outstanding">–</div>
-        <div class="stat-label">Outstanding dues</div>
+
+      <h2>Active leases</h2>
+      <div class="table-wrap">
+        <table id="active-leases-table">
+          <thead>
+            <tr>
+              <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th>
+              <th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
 
-    <h2>Active leases</h2>
-    <div class="table-wrap">
-      <table id="active-leases-table">
-        <thead>
-          <tr>
-            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="demo-bar">
+      <span>Sample data</span>
+      <button data-action="seed">Load sample data</button>
+      <button data-action="reset" class="danger-text">Clear everything</button>
     </div>
   </section>
 
@@ -74,7 +90,7 @@
     <div class="table-wrap">
       <table id="zones-table">
         <thead>
-          <tr><th>Name</th><th>Size (sq ft)</th><th>Status</th><th>Notes</th></tr>
+          <tr><th>Name</th><th>Size (sq ft)</th><th>Status</th><th>Notes</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -95,7 +111,7 @@
     <div class="table-wrap">
       <table id="vendors-table">
         <thead>
-          <tr><th>Name</th><th>Contact</th><th>Notes</th></tr>
+          <tr><th>Name</th><th>Contact</th><th>Leases</th><th>Notes</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -118,7 +134,8 @@
       <table id="leases-table">
         <thead>
           <tr>
-            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th><th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th><th>Actions</th>
+            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th>
+            <th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -129,21 +146,16 @@
 </main>
 
 <div id="modal-backdrop" class="hidden">
-  <div id="modal">
-    <h3 id="modal-title">Record payment</h3>
-    <form id="payment-form">
-      <input type="hidden" name="lease_id">
-      <label>Amount<input type="number" name="amount" min="0" step="any" required></label>
-      <label>Date<input type="date" name="paid_date" required></label>
-      <label>Notes<input type="text" name="notes"></label>
-      <p class="error" id="payment-error"></p>
-      <div class="modal-actions">
-        <button type="button" id="modal-cancel">Cancel</button>
-        <button type="submit">Save payment</button>
-      </div>
-    </form>
+  <div id="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h3 id="modal-title"></h3>
+      <button id="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="modal-body"></div>
   </div>
 </div>
+
+<div id="toast" class="hidden"></div>
 
 <script src="app.js"></script>
 </body>

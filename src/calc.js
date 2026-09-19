@@ -7,6 +7,12 @@ export function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function daysAgoStr(n) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 // Start day counts as day 1, so a lease starting today already owes one day's rent.
 export function daysOccupied(startDate, endDate) {
   const end = endDate ?? todayStr();

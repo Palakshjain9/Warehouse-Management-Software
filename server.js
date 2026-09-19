@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 import zonesRouter from './src/routes/zones.js';
 import vendorsRouter from './src/routes/vendors.js';
 import leasesRouter from './src/routes/leases.js';
+import paymentsRouter from './src/routes/payments.js';
 import dashboardRouter from './src/routes/dashboard.js';
+import demoRouter from './src/routes/demo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -14,7 +16,9 @@ app.use(express.json());
 app.use('/api/zones', zonesRouter);
 app.use('/api/vendors', vendorsRouter);
 app.use('/api/leases', leasesRouter);
+app.use('/api/payments', paymentsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/demo', demoRouter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -5,13 +5,30 @@ version built to test the idea with real numbers before adding more features.
 
 ## What it does
 
-- **Zones** — define named spaces in your warehouse with a size in sq ft.
-- **Vendors** — who you're renting to.
+- **Zones** — define named spaces in your warehouse with a size in sq ft. Edit or
+  delete them; a zone with leases on record can't be deleted by accident.
+- **Vendors** — who you're renting to, with a count of their leases.
 - **Leases** — assign a vendor to a zone at a daily rate starting on a date.
-  A zone can only have one active lease at a time; end a lease to free the zone up.
-- **Payments** — log payments against a lease and see the outstanding balance.
-- **Dashboard** — occupancy, total daily revenue from active leases, and total
+  A zone can only have one active lease at a time; end a lease to free the zone up,
+  or reopen one you ended by mistake.
+- **Payments** — log payments against a lease, remove ones entered wrongly, and see
+  the outstanding balance (an overpayment shows as a credit).
+- **Lease details** — click **Details** on any lease for the full working: rate,
+  billing period, days billed, `rate × days = accrued`, payments received, and the
+  resulting balance, so every number on the dashboard can be checked by hand.
+- **Dashboard** — occupancy, total daily rent from active leases, and total
   outstanding dues across all leases.
+
+### Sample data
+
+The dashboard has a **Load sample data** button (and a **Clear everything** button
+next to it). It fills the app with six zones, four vendors, three running leases,
+two closed ones, and a mix of part-payments and a fully settled account — enough to
+show someone how the whole thing works without typing anything in. Dates are
+generated relative to today, so the day counts always look live.
+
+Loading sample data replaces whatever is currently in the app, so clear it out
+before you start entering real numbers.
 
 ### Rent accrual rule
 
@@ -53,8 +70,13 @@ That's fine for kicking the tires — once you're ready to rely on this for real
 bookkeeping, ask and we'll move storage to a small hosted database so it survives
 deploys.
 
+## Currency
+
+Amounts render as `₹` with Indian digit grouping. Both are set at the top of
+`public/app.js` (`CURRENCY` and `LOCALE`) — change those two lines for anything else.
+
 ## Not included yet
 
-Intentionally left out until the idea is validated: invoices/PDFs, multi-warehouse
-support, login/accounts, payment gateways, reminders/notifications, editing or
-deleting zones/vendors/leases after creation. Ask and we can add any of these next.
+Intentionally left out until the idea is validated: a visual floor plan of the
+zones, invoices/PDFs, multi-warehouse support, login/accounts, payment gateways,
+and reminders/notifications. Ask and we can add any of these next.
