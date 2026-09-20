@@ -15,6 +15,7 @@
     <button class="tab-btn" data-tab="zones">Spaces</button>
     <button class="tab-btn" data-tab="vendors">Vendors</button>
     <button class="tab-btn" data-tab="leases">Leases</button>
+    <button class="tab-btn" data-tab="bookings">Enquiries</button>
     <button class="tab-btn" data-tab="calculator">Space picker</button>
   </nav>
 </header>
@@ -79,28 +80,32 @@
   </section>
 
   <section id="plan" class="tab-panel">
-    <div class="plan-bar">
-      <div class="plan-legend">
-        <span><i class="swatch vacant"></i> Vacant</span>
-        <span><i class="swatch taken"></i> Taken</span>
-        <span><i class="swatch overlap"></i> Overlapping</span>
-      </div>
-      <div class="plan-tools">
-        <button data-action="plan-arrange">Auto-arrange unplaced</button>
-      </div>
-    </div>
-
-    <p class="intro-line" id="plan-hint">
-      Drag a space to move it. Tap one to select it, then rotate it or take it off the plan.
-      Everything is drawn to scale from the dimensions on the Spaces tab.
+    <h2>Your layout drawing</h2>
+    <p class="intro-line">
+      Upload the drawing of your basement with the spaces marked on it, then draw a box
+      over each one so customers can tap it. Boxes are stored as a share of the picture,
+      so they stay put whatever size the screen is.
     </p>
 
-    <div id="plan-canvas-wrap">
-      <svg id="plan-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
+    <div id="plan-tools" class="plan-bar"></div>
+    <div id="plan-stage"></div>
+    <div id="plan-list"></div>
+  </section>
 
-    <div id="plan-selection"></div>
-    <div id="plan-tray"></div>
+  <section id="bookings" class="tab-panel">
+    <h2>Enquiries from the booking page</h2>
+    <p class="intro-line">
+      What customers picked on <a href="/book" target="_blank">the booking page</a>.
+      Nothing here is a lease yet — create one on the Leases tab once you've agreed terms.
+    </p>
+    <div class="table-wrap">
+      <table id="bookings-table">
+        <thead>
+          <tr><th>When</th><th>Space</th><th>Customer</th><th>Wants to store</th><th>From</th><th>Fit</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 
   <section id="zones" class="tab-panel">
@@ -124,6 +129,9 @@
         <label class="grow">Wall support
           <select name="wall_support" id="zone-wall-select"></select>
         </label>
+        <label>Rate per day
+          <input type="number" name="list_rate_per_day" min="0" step="any" placeholder="₹ / day">
+        </label>
         <label class="grow">Notes
           <input type="text" name="notes" placeholder="Optional">
         </label>
@@ -136,7 +144,7 @@
     <div class="table-wrap">
       <table id="zones-table">
         <thead>
-          <tr><th>Name</th><th>Dimensions</th><th>Floor</th><th>Volume</th><th>Walls</th><th>Status</th><th></th></tr>
+          <tr><th>Name</th><th>Dimensions</th><th>Floor</th><th>Volume</th><th>Walls</th><th>Rate/day</th><th>Status</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -253,6 +261,7 @@
 
 <div id="toast" class="hidden"></div>
 
+<script src="fit.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

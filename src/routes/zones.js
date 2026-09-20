@@ -6,7 +6,7 @@ const router = Router();
 const SELECT_ZONES = `
   SELECT
     z.id, z.name, z.size_sqft, z.length_ft, z.width_ft, z.height_ft, z.wall_support,
-    z.pos_x, z.pos_y, z.rotated, z.notes,
+    z.list_rate_per_day, z.hot_x, z.hot_y, z.hot_w, z.hot_h, z.notes,
     (z.length_ft * z.width_ft * z.height_ft) AS volume_cuft,
     l.id AS active_lease_id, l.daily_rate AS active_rate, l.start_date AS active_start,
     v.id AS vendor_id, v.name AS vendor_name
@@ -46,9 +46,10 @@ router.post('/', (req, res) => {
 
   try {
     const info = db.prepare(`
-      INSERT INTO zones (name, size_sqft, length_ft, width_ft, height_ft, wall_support, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(String(body.name).trim(), dims.sizeSqft, dims.length, dims.width, dims.height, dims.wall, body.notes || null);
+      INSERT INTO zones (name, size_sqft, length_ft, width_ft, height_ft, wall_support, list_rate_per_day, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(String(body.name).trim(), dims.sizeSqft, dims.length, dims.width, dims.height, dims.wall,
+           body.list_rate_per_day ? Number(body.list_rate_per_day) : null, body.notes || null);
     res.status(201).json({ id: Number(info.lastInsertRowid) });
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) {
@@ -72,10 +73,14 @@ router.patch('/:id', (req, res) => {
   try {
     db.prepare(`
       UPDATE zones
-      SET name = ?, size_sqft = ?, length_ft = ?, width_ft = ?, height_ft = ?, wall_support = ?, notes = ?
+      SET name = ?, size_sqft = ?, length_ft = ?, width_ft = ?, height_ft = ?, wall_support = ?,
+          list_rate_per_day = ?, notes = ?
       WHERE id = ?
     `).run(
       name, dims.sizeSqft, dims.length, dims.width, dims.height, dims.wall,
+      body.list_rate_per_day === undefined
+        ? zone.list_rate_per_day
+        : (body.list_rate_per_day ? Number(body.list_rate_per_day) : null),
       body.notes === undefined ? zone.notes : (body.notes || null),
       req.params.id
     );
@@ -88,21 +93,33 @@ router.patch('/:id', (req, res) => {
   }
 });
 
-// Kept apart from the main PATCH so dragging a space around the plan never has to
-// satisfy dimension validation.
-router.patch('/:id/position', (req, res) => {
+// Hotspots are fractions of the drawing (0-1), so they survive the image being
+// displayed at any size. Kept apart from the main PATCH so mapping an area never has
+// to satisfy dimension validation.
+router.patch('/:id/hotspot', (req, res) => {
   const zone = db.prepare('SELECT id FROM zones WHERE id = ?').get(req.params.id);
   if (!zone) return res.status(404).json({ error: 'Space not found' });
 
-  const { pos_x, pos_y, rotated } = req.body ?? {};
-  const onPlan = pos_x !== null && pos_x !== undefined && pos_y !== null && pos_y !== undefined;
+  const { hot_x, hot_y, hot_w, hot_h } = req.body ?? {};
+  const clearing = [hot_x, hot_y, hot_w, hot_h].some(v => v === null || v === undefined);
 
-  db.prepare('UPDATE zones SET pos_x = ?, pos_y = ?, rotated = ? WHERE id = ?').run(
-    onPlan ? Number(pos_x) : null,
-    onPlan ? Number(pos_y) : null,
-    rotated ? 1 : 0,
-    req.params.id
-  );
+  if (clearing) {
+    db.prepare('UPDATE zones SET hot_x = NULL, hot_y = NULL, hot_w = NULL, hot_h = NULL WHERE id = ?')
+      .run(req.params.id);
+    return res.json({ ok: true });
+  }
+
+  const clamp = v => Math.min(1, Math.max(0, Number(v)));
+  const x = clamp(hot_x);
+  const y = clamp(hot_y);
+  const w = Math.min(clamp(hot_w), 1 - x);
+  const h = Math.min(clamp(hot_h), 1 - y);
+  if (!(w > 0.005 && h > 0.005)) {
+    return res.status(400).json({ error: 'That area is too small to tap — draw a bigger box' });
+  }
+
+  db.prepare('UPDATE zones SET hot_x = ?, hot_y = ?, hot_w = ?, hot_h = ? WHERE id = ?')
+    .run(x, y, w, h, req.params.id);
   res.json({ ok: true });
 });
 

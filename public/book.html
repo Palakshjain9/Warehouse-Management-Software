@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a space</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="book-body">
+
+<header class="book-header">
+  <h1>Book a space</h1>
+  <ol class="steps">
+    <li data-step="1" class="current">Pick a space</li>
+    <li data-step="2">What you're storing</li>
+    <li data-step="3">Confirm</li>
+  </ol>
+</header>
+
+<main class="book-main">
+
+  <section id="step-1" class="book-step active">
+    <p class="intro-line" id="pick-hint">
+      Tap a marked area on the plan to pick it. Press and hold an area to see its floor
+      space and height first.
+    </p>
+    <div id="book-stage"></div>
+    <div id="book-detail"></div>
+  </section>
+
+  <section id="step-2" class="book-step">
+    <div class="chosen-bar" id="chosen-bar"></div>
+
+    <h2>What are you planning to store?</h2>
+    <p class="intro-line">
+      A rough idea is enough. If you know the exact size of one item, tell us and we can
+      be more precise about whether it fits.
+    </p>
+
+    <form id="goods-form" class="calc-form" autocomplete="off">
+      <div class="field-row">
+        <label class="grow">Type of goods
+          <select name="preset" id="goods-preset"></select>
+        </label>
+        <label>How many?
+          <input type="number" name="quantity" value="300" min="1" step="1" required>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="grow">
+          <span class="checkbox-line">
+            <input type="checkbox" name="exact" id="exact-toggle">
+            I know the exact size of one item
+          </span>
+        </label>
+      </div>
+
+      <div class="field-row hidden" id="exact-fields">
+        <label>Length
+          <input type="number" name="item_l" step="any" min="0">
+        </label>
+        <label>Width
+          <input type="number" name="item_w" step="any" min="0">
+        </label>
+        <label>Height
+          <input type="number" name="item_h" step="any" min="0">
+        </label>
+        <label>Units
+          <select name="dim_unit">
+            <option value="m">metres</option>
+            <option value="ft">feet</option>
+          </select>
+        </label>
+      </div>
+    </form>
+
+    <div id="fit-verdict"></div>
+
+    <div class="book-actions">
+      <button data-action="back-to-1">Back</button>
+      <button class="primary" data-action="to-step-3">Continue</button>
+    </div>
+  </section>
+
+  <section id="step-3" class="book-step">
+    <div class="chosen-bar" id="chosen-bar-3"></div>
+
+    <h2>Confirm your booking</h2>
+    <div id="summary"></div>
+
+    <form id="confirm-form" class="calc-form" autocomplete="off">
+      <div class="field-row">
+        <label class="grow">Your name
+          <input type="text" name="customer_name" required>
+        </label>
+        <label class="grow">Phone or email
+          <input type="text" name="contact">
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Starting from
+          <input type="date" name="start_date" required>
+        </label>
+        <label>For how many days
+          <input type="number" name="days" value="30" min="1" step="1" required>
+        </label>
+      </div>
+    </form>
+
+    <div id="cost-block"></div>
+    <p class="error" id="confirm-error"></p>
+
+    <div class="book-actions">
+      <button data-action="back-to-2">Back</button>
+      <button class="primary" data-action="submit-booking">Confirm and pay</button>
+    </div>
+  </section>
+
+  <section id="step-done" class="book-step">
+    <div class="empty-state">
+      <h2>Booking recorded</h2>
+      <p id="done-text"></p>
+      <div id="payment-stub"></div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="hidden"></div>
+
+<script src="fit.js"></script>
+<script src="book.js"></script>
+</body>
+</html>

@@ -4,7 +4,7 @@ const LOCALE = 'en-IN';
 const $ = (sel, root = document) => root.querySelector(sel);
 const $all = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-const state = { zones: [], vendors: [], leases: [] };
+const state = { zones: [], vendors: [], leases: [], bookings: [] };
 let openLeaseId = null;
 
 function todayStr() {
@@ -115,7 +115,7 @@ async function loadZones() {
   state.zones = await api('/api/zones');
   const tbody = $('#zones-table tbody');
   if (state.zones.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No spaces yet. Add one above.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No spaces yet. Add one above.</td></tr>';
   } else {
     tbody.innerHTML = state.zones.map(z => `<tr>
       <td data-label="Name">
@@ -126,6 +126,7 @@ async function loadZones() {
       <td data-label="Floor">${z.size_sqft == null ? '—' : `${Number(z.size_sqft).toLocaleString(LOCALE)} sq ft`}</td>
       <td data-label="Volume">${z.volume_cuft ? `${Math.round(z.volume_cuft).toLocaleString(LOCALE)} cu ft` : '—'}</td>
       <td data-label="Walls">${escapeHtml(wallInfo(z.wall_support).short)}</td>
+      <td data-label="Rate/day">${z.list_rate_per_day ? money(z.list_rate_per_day) : '\u2014'}</td>
       <td data-label="Status">${z.active_lease_id
         ? `<span class="badge occupied">Taken — ${escapeHtml(z.vendor_name)}</span>`
         : '<span class="badge vacant">Vacant</span>'}</td>
@@ -193,6 +194,34 @@ async function loadLeases() {
       </td>
     </tr>`;
   }).join('');
+}
+
+// ---- Bookings from the customer page ----
+async function loadBookings() {
+  state.bookings = await api('/api/bookings');
+  const tbody = $('#bookings-table tbody');
+  if (!state.bookings.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No enquiries from the booking page yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.bookings.map(b => `<tr>
+    <td data-label="When">${fmtDate((b.created_at || '').slice(0, 10))}</td>
+    <td data-label="Space">${escapeHtml(b.zone_name)}</td>
+    <td data-label="Customer">
+      ${escapeHtml(b.customer_name)}
+      ${b.contact ? `<div class="cell-note">${escapeHtml(b.contact)}</div>` : ''}
+    </td>
+    <td data-label="Wants to store">
+      ${b.quantity ? `${Number(b.quantity).toLocaleString(LOCALE)} \u00d7 ${escapeHtml(b.item_label || 'items')}` : '\u2014'}
+    </td>
+    <td data-label="From">${b.start_date ? fmtDate(b.start_date) : '\u2014'}</td>
+    <td data-label="Fit">${b.fit_warning
+      ? `<span class="badge occupied">${escapeHtml(b.fit_warning)}</span>`
+      : '<span class="badge vacant">Looked fine</span>'}</td>
+    <td data-label="" class="row-actions">
+      <button data-action="booking-delete" data-id="${b.id}" class="danger-text">Delete</button>
+    </td>
+  </tr>`).join('');
 }
 
 // ---- Lease detail ----
@@ -263,6 +292,7 @@ function openZoneEdit(id) {
       <label>Length (ft)<input type="number" name="length_ft" min="0" step="any" value="${z.length_ft ?? ''}" required></label>
       <label>Width (ft)<input type="number" name="width_ft" min="0" step="any" value="${z.width_ft ?? ''}" required></label>
       <label>Height (ft)<input type="number" name="height_ft" min="0" step="any" value="${z.height_ft ?? ''}" required></label>
+      <label>Rate per day<input type="number" name="list_rate_per_day" min="0" step="any" value="${z.list_rate_per_day ?? ''}"></label>
       <label>Wall support<select name="wall_support">${WALL_OPTIONS
         .map(w => `<option value="${w.value}"${Number(z.wall_support) === w.value ? ' selected' : ''}>${escapeHtml(w.label)}</option>`)
         .join('')}</select></label>
@@ -313,7 +343,7 @@ function openLeaseEdit(id) {
 
 // ---- Shared ----
 async function refreshAll() {
-  await Promise.all([loadZones(), loadVendors(), loadLeases()]);
+  await Promise.all([loadZones(), loadVendors(), loadLeases(), loadBookings()]);
   await loadDashboard();
   refreshRateHint();
   renderCalcResults();
@@ -355,48 +385,39 @@ const actions = {
   'lease-edit': id => openLeaseEdit(id),
   'modal-cancel': () => closeModal(),
 
-  async 'plan-place'(id) {
-    const zone = state.zones.find(z => z.id === Number(id));
-    const { w, h } = planFootprint(zone);
-    const spot = findFreeSpot(w, h, planRects());
-    zone.pos_x = spot.x;
-    zone.pos_y = spot.y;
-    selectedSpaceId = zone.id;
+  'map-start'(id) {
+    mappingZoneId = Number(id);
+    selectedHotspotId = null;
     renderPlan();
-    await savePosition(zone);
   },
 
-  async 'plan-arrange'() {
-    const unplaced = state.zones.filter(z => !isPlaced(z) && Number(z.length_ft) > 0 && Number(z.width_ft) > 0);
-    if (!unplaced.length) {
-      toast('Every measured space is already on the plan');
-      return;
-    }
-    for (const zone of unplaced) {
-      const { w, h } = planFootprint(zone);
-      const spot = findFreeSpot(w, h, planRects());
-      zone.pos_x = spot.x;
-      zone.pos_y = spot.y;
-      await savePosition(zone);
-    }
+  'map-cancel'() {
+    mappingZoneId = null;
     renderPlan();
-    toast(`Placed ${unplaced.length} space${unplaced.length === 1 ? '' : 's'}`);
   },
 
-  async 'plan-rotate'(id) {
-    const zone = state.zones.find(z => z.id === Number(id));
-    zone.rotated = zone.rotated ? 0 : 1;
-    renderPlan();
-    await savePosition(zone);
+  async 'map-clear'(id) {
+    await api(`/api/zones/${id}/hotspot`, { method: 'PATCH', body: JSON.stringify({ hot_x: null }) });
+    if (selectedHotspotId === Number(id)) selectedHotspotId = null;
+    await refreshAll();
+    toast('Area cleared');
   },
 
-  async 'plan-unplace'(id) {
-    const zone = state.zones.find(z => z.id === Number(id));
-    zone.pos_x = null;
-    zone.pos_y = null;
-    selectedSpaceId = null;
-    renderPlan();
-    await savePosition(zone);
+  async 'plan-remove-image'() {
+    if (!confirm('Remove the drawing? Every marked area is cleared with it.')) return;
+    await api('/api/plan/image', { method: 'DELETE' });
+    mappingZoneId = null;
+    selectedHotspotId = null;
+    await loadPlanImage();
+    await refreshAll();
+    toast('Drawing removed');
+  },
+
+  async 'booking-delete'(id) {
+    if (!confirm('Delete this enquiry?')) return;
+    await api(`/api/bookings/${id}`, { method: 'DELETE' });
+    await refreshAll();
+    toast('Enquiry deleted');
   },
 
   'apply-max-stack'(maxStack) {
@@ -498,34 +519,7 @@ document.addEventListener('submit', async e => {
 });
 
 // ---- Space picker ----
-const M_TO_FT = 3.280839895;
-
-// Clearance left under beams, lights and sprinklers rather than stacking to the slab.
-const HEADROOM_FT = 1;
-
-// How much of a space's floor you actually get to use. A corner only needs access from
-// two sides; an island in the middle of the floor needs it all the way round.
-const WALL_OPTIONS = [
-  { value: 0, label: 'Open on all sides', short: 'open on all sides', usable: 0.60 },
-  { value: 1, label: 'Against one wall', short: 'one wall', usable: 0.70 },
-  { value: 2, label: 'Corner — two walls', short: 'corner, two walls', usable: 0.75 },
-  { value: 3, label: 'Alcove — three walls', short: 'alcove, three walls', usable: 0.80 },
-];
-
-function wallInfo(n) {
-  return WALL_OPTIONS.find(w => w.value === Number(n)) || WALL_OPTIONS[0];
-}
-
-// Starting points only — every dimension stays editable, because real stock varies.
-const ITEM_PRESETS = [
-  { id: 'carton-lg', label: 'Carton, large (600 × 400 × 400 mm)', l: 0.6, w: 0.4, h: 0.4 },
-  { id: 'carton-sm', label: 'Carton, small (400 × 300 × 300 mm)', l: 0.4, w: 0.3, h: 0.3 },
-  { id: 'bag', label: 'Sack or bag, 50 kg (900 × 550 × 250 mm)', l: 0.9, w: 0.55, h: 0.25 },
-  { id: 'bale', label: 'Pressed bale (1100 × 550 × 700 mm)', l: 1.1, w: 0.55, h: 0.7 },
-  { id: 'pallet-std', label: 'Pallet, loaded (1200 × 1000 × 1200 mm)', l: 1.2, w: 1.0, h: 1.2 },
-  { id: 'drum', label: 'Drum, 200 litre (ø 580 × 890 mm)', l: 0.58, w: 0.58, h: 0.89 },
-  { id: 'custom', label: 'Something else — I’ll type the size', l: null, w: null, h: null },
-];
+// Wall factors, item presets and capacity maths live in fit.js, shared with /book.
 
 function sqft(n) {
   return Number(n).toLocaleString(LOCALE, { maximumFractionDigits: n < 100 ? 1 : 0 });
@@ -540,30 +534,10 @@ function calcInputs() {
 }
 
 function itemFromInputs(d) {
-  const toFt = d.dim_unit === 'm' ? M_TO_FT : 1;
-  const l = Number(d.item_l) * toFt;
-  const w = Number(d.item_w) * toFt;
-  const h = Number(d.item_h) * toFt;
-  const qty = Math.floor(Number(d.quantity) || 0);
-  if (!(l > 0 && w > 0 && h > 0 && qty > 0)) return null;
-
-  const cap = Math.floor(Number(d.max_stack) || 0);
-  return { l, w, h, qty, footprint: l * w, maxStack: cap > 0 ? cap : null };
-}
-
-function spaceCapacity(zone, item) {
-  const wall = wallInfo(zone.wall_support);
-  const floorSqft = Number(zone.size_sqft) || 0;
-  const usableFloor = floorSqft * wall.usable;
-  const usableHeight = Math.max(Number(zone.height_ft) - HEADROOM_FT, 0);
-
-  let layers = Math.floor(usableHeight / item.h);
-  const limitedByRule = item.maxStack !== null && item.maxStack < layers;
-  if (limitedByRule) layers = item.maxStack;
-  layers = Math.max(layers, 0);
-
-  const perLayer = Math.floor(usableFloor / item.footprint);
-  return { wall, floorSqft, usableFloor, usableHeight, layers, perLayer, limitedByRule, capacity: perLayer * layers };
+  return makeItem({
+    l: d.item_l, w: d.item_w, h: d.item_h, unit: d.dim_unit,
+    quantity: d.quantity, maxStack: d.max_stack,
+  });
 }
 
 function averageRatePerSqft() {
@@ -722,239 +696,201 @@ function initCalculator() {
 
   $('#calc-form').addEventListener('submit', e => e.preventDefault());
 }
-// ---- Floor plan ----
-const PLAN_PAD_FT = 6;
-const PLAN_MIN_W = 60;
-const PLAN_MIN_H = 40;
-const SNAP_FT = 1;
+// ---- Plan drawing and hotspot mapping ----
+// The drawing is the owner's own layout image. Hotspots are rectangles drawn over it,
+// stored as fractions of the image so they hold up at any display size.
 
-let selectedSpaceId = null;
-let dragState = null;
+let planImage = null;
+let mappingZoneId = null;
+let hotspotDraw = null;
+let selectedHotspotId = null;
 
-function isPlaced(z) {
-  return z.pos_x != null && z.pos_y != null && Number(z.length_ft) > 0 && Number(z.width_ft) > 0;
+async function loadPlanImage() {
+  const row = await api('/api/plan/image');
+  planImage = row.data_url || null;
+  renderPlan();
 }
 
-// A rotated space runs the other way round on the plan; its recorded dimensions don't change.
-function planFootprint(z) {
-  return z.rotated
-    ? { w: Number(z.width_ft), h: Number(z.length_ft) }
-    : { w: Number(z.length_ft), h: Number(z.width_ft) };
-}
-
-// SVG won't wrap or clip text, so trim it to what the box can hold. Roughly 0.55 em
-// per character is close enough for the sans-serif stack in use.
-function fitText(str, boxWidthFt, fontSizeFt) {
-  const maxChars = Math.floor((boxWidthFt * 0.88) / (fontSizeFt * 0.55));
-  if (str.length <= maxChars) return str;
-  return maxChars <= 1 ? '' : `${str.slice(0, maxChars - 1)}…`;
-}
-
-function rectsOverlap(a, b) {
-  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-}
-
-function planRects() {
-  return state.zones.filter(isPlaced).map(z => {
-    const { w, h } = planFootprint(z);
-    return { zone: z, id: z.id, x: Number(z.pos_x), y: Number(z.pos_y), w, h };
-  });
-}
-
-function findFreeSpot(w, h, occupied) {
-  const limitX = Math.max(PLAN_MIN_W, ...occupied.map(o => o.x + o.w), 0);
-  const limitY = Math.max(PLAN_MIN_H, ...occupied.map(o => o.y + o.h), 0) + h + 10;
-  for (let y = 0; y <= limitY; y += 1) {
-    for (let x = 0; x + w <= limitX + w; x += 1) {
-      const candidate = { x, y, w, h };
-      if (!occupied.some(o => rectsOverlap(candidate, o))) return { x, y };
-    }
-  }
-  return { x: 0, y: limitY };
-}
-
-function svgPoint(evt) {
-  const svg = $('#plan-canvas');
-  const ctm = svg.getScreenCTM();
-  if (!ctm) return { x: 0, y: 0 };
-  return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(ctm.inverse());
+function hotspotOf(z) {
+  return z.hot_w != null && z.hot_h != null
+    ? { x: Number(z.hot_x), y: Number(z.hot_y), w: Number(z.hot_w), h: Number(z.hot_h) }
+    : null;
 }
 
 function renderPlan() {
-  const svg = $('#plan-canvas');
-  if (!svg) return;
+  const wrap = $('#plan-stage');
+  if (!wrap) return;
 
-  const rects = planRects();
-  const extentX = Math.max(PLAN_MIN_W, ...rects.map(r => r.x + r.w)) + PLAN_PAD_FT;
-  const extentY = Math.max(PLAN_MIN_H, ...rects.map(r => r.y + r.h)) + PLAN_PAD_FT;
-  svg.setAttribute('viewBox', `0 0 ${extentX} ${extentY}`);
-  svg.style.aspectRatio = `${extentX} / ${extentY}`;
+  if (!planImage) {
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <h2>No layout drawing yet</h2>
+        <p>Upload a picture of your basement layout with the spaces marked and named.
+           You then draw a box over each one to make it tappable for customers.</p>
+        <label class="primary file-button">
+          Choose a drawing<input type="file" id="plan-file" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+      </div>`;
+    $('#plan-tools').innerHTML = '';
+    $('#plan-list').innerHTML = '';
+    return;
+  }
 
-  let grid = '';
-  for (let x = 0; x <= extentX; x += 5) grid += `M${x} 0 V${extentY} `;
-  for (let y = 0; y <= extentY; y += 5) grid += `M0 ${y} H${extentX} `;
-
-  // Labels are sized in screen pixels converted back into plan feet, so they stay
-  // readable on a phone instead of shrinking with the drawing.
-  const renderedWidth = svg.getBoundingClientRect().width;
-  const pxPerFt = renderedWidth > 0 ? renderedWidth / extentX : 12;
-  const ft = px => px / pxPerFt;
-
-  const shapes = rects.map(r => {
-    const z = r.zone;
-    const overlapping = rects.some(o => o.id !== r.id && rectsOverlap(r, o));
-    const taken = !!z.active_lease_id;
-    const fontSize = Math.min(ft(15), Math.min(r.w, r.h) * 0.2);
-    const roomy = r.h >= fontSize * 4.2 && r.w >= fontSize * 5;
-
-    const classes = ['plan-space', taken ? 'taken' : 'vacant'];
-    if (overlapping) classes.push('overlap');
-    if (selectedSpaceId === z.id) classes.push('selected');
-
-    const subSize = fontSize * 0.72;
-    const lines = [
-      `<text class="plan-name" x="${r.w / 2}" y="${roomy ? r.h / 2 - fontSize * 0.5 : r.h / 2 + fontSize * 0.35}" font-size="${fontSize}">${escapeHtml(fitText(z.name, r.w, fontSize))}</text>`,
-    ];
-    if (roomy) {
-      lines.push(`<text class="plan-sub" x="${r.w / 2}" y="${r.h / 2 + fontSize * 0.8}" font-size="${subSize}">${fitText(`${r.w} × ${r.h} ft`, r.w, subSize)}</text>`);
-      lines.push(`<text class="plan-sub" x="${r.w / 2}" y="${r.h / 2 + fontSize * 2}" font-size="${subSize}">${escapeHtml(fitText(taken ? z.vendor_name : 'Vacant', r.w, subSize))}</text>`);
-    }
-
-    return `<g class="${classes.join(' ')}" data-plan-id="${z.id}" transform="translate(${r.x} ${r.y})">
-        <rect width="${r.w}" height="${r.h}" rx="0.4"></rect>
-        ${lines.join('')}
-      </g>`;
+  const mapped = state.zones.filter(z => hotspotOf(z));
+  const boxes = mapped.map(z => {
+    const h = hotspotOf(z);
+    const classes = ['hot-box'];
+    if (mappingZoneId === z.id) classes.push('mapping-target');
+    if (selectedHotspotId === z.id) classes.push('selected');
+    return `<div class="${classes.join(' ')}" data-hot-id="${z.id}"
+        style="left:${h.x * 100}%;top:${h.y * 100}%;width:${h.w * 100}%;height:${h.h * 100}%">
+        <span>${escapeHtml(z.name)}</span>
+      </div>`;
   }).join('');
 
-  svg.innerHTML = `<path class="plan-grid" d="${grid}"></path>${shapes}`;
-  renderPlanSelection();
-  renderPlanTray();
+  wrap.innerHTML = `
+    <div id="plan-frame" class="${mappingZoneId ? 'drawing' : ''}">
+      <img id="plan-img" src="${planImage}" alt="Basement layout">
+      ${boxes}
+      <div id="draw-box" class="hidden"></div>
+    </div>`;
+
+  $('#plan-tools').innerHTML = `
+    <label class="file-button">Replace drawing<input type="file" id="plan-file" accept="image/png,image/jpeg,image/webp" hidden></label>
+    <button data-action="plan-remove-image" class="danger-text">Remove drawing</button>
+    <a class="link-button" href="/book" target="_blank">Open customer view</a>`;
+
+  renderPlanList();
 }
 
-function renderPlanSelection() {
-  const box = $('#plan-selection');
-  const z = state.zones.find(s => s.id === selectedSpaceId);
-  if (!z || !isPlaced(z)) {
-    box.innerHTML = '';
+function renderPlanList() {
+  const list = $('#plan-list');
+  if (!planImage) { list.innerHTML = ''; return; }
+
+  const rows = state.zones.map(z => {
+    const mapped = !!hotspotOf(z);
+    return `<li class="${mapped ? 'mapped' : 'unmapped'}">
+      <span class="fit-name">${escapeHtml(z.name)}</span>
+      <span class="muted-inline">${z.size_sqft ? `${Number(z.size_sqft).toLocaleString(LOCALE)} sq ft` : ''}
+        ${z.height_ft ? `· ${z.height_ft} ft high` : ''}</span>
+      <span class="map-actions">
+        ${mappingZoneId === z.id
+          ? `<em>Drag a box on the drawing…</em> <button data-action="map-cancel">Cancel</button>`
+          : `<button data-action="map-start" data-id="${z.id}">${mapped ? 'Redraw area' : 'Mark area'}</button>`}
+        ${mapped ? `<button data-action="map-clear" data-id="${z.id}" class="danger-text">Clear</button>` : ''}
+      </span>
+    </li>`;
+  }).join('');
+
+  const unmappedCount = state.zones.filter(z => !hotspotOf(z)).length;
+  list.innerHTML = `
+    <h4>Spaces on the drawing</h4>
+    ${unmappedCount ? `<p class="muted-line">${unmappedCount} space${unmappedCount === 1 ? '' : 's'}
+      not marked yet — customers can only pick the ones you mark.</p>` : ''}
+    <ul class="map-list">${rows}</ul>`;
+}
+
+async function uploadPlanFile(file) {
+  if (!file) return;
+  if (file.size > 6 * 1024 * 1024) {
+    toast('That image is over 6 MB — try a smaller one', 'err');
     return;
   }
-  const { w, h } = planFootprint(z);
-  box.innerHTML = `
-    <div class="plan-selected">
-      <div>
-        <strong>${escapeHtml(z.name)}</strong>
-        <span class="muted-inline">${w} × ${h} ft on the plan ·
-          ${z.active_lease_id ? `taken by ${escapeHtml(z.vendor_name)}` : 'vacant'}</span>
-      </div>
-      <div class="plan-selected-actions">
-        <button data-action="plan-rotate" data-id="${z.id}">Rotate 90°</button>
-        ${z.active_lease_id ? `<button data-action="lease-detail" data-id="${z.active_lease_id}">View lease</button>` : ''}
-        <button data-action="plan-unplace" data-id="${z.id}">Take off plan</button>
-      </div>
-    </div>`;
-}
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Could not read that file'));
+    reader.readAsDataURL(file);
+  });
 
-function renderPlanTray() {
-  const tray = $('#plan-tray');
-  const unplaced = state.zones.filter(z => !isPlaced(z));
-  if (!unplaced.length) {
-    tray.innerHTML = '';
-    return;
-  }
-  tray.innerHTML = `
-    <h4>Not on the plan yet</h4>
-    <div class="tray-items">
-      ${unplaced.map(z => {
-        const measured = Number(z.length_ft) > 0 && Number(z.width_ft) > 0;
-        return `<div class="tray-item">
-          <span>${escapeHtml(z.name)}</span>
-          <span class="muted-inline">${measured ? `${z.length_ft} × ${z.width_ft} ft` : 'no dimensions recorded'}</span>
-          ${measured ? `<button data-action="plan-place" data-id="${z.id}">Place</button>` : ''}
-        </div>`;
-      }).join('')}
-    </div>`;
-}
-
-async function savePosition(zone) {
   try {
-    await api(`/api/zones/${zone.id}/position`, {
-      method: 'PATCH',
-      body: JSON.stringify({ pos_x: zone.pos_x, pos_y: zone.pos_y, rotated: zone.rotated }),
-    });
+    await api('/api/plan/image', { method: 'PUT', body: JSON.stringify({ data_url: dataUrl }) });
+    await loadPlanImage();
+    toast('Drawing uploaded');
   } catch (err) {
     toast(err.message, 'err');
-    await refreshAll();
   }
 }
 
-function onPlanPointerDown(e) {
-  const g = e.target.closest('.plan-space');
-  if (!g) {
-    if (selectedSpaceId !== null) {
-      selectedSpaceId = null;
-      renderPlan();
-    }
-    return;
-  }
-
-  const zone = state.zones.find(z => z.id === Number(g.dataset.planId));
-  if (!zone) return;
-
-  const p = svgPoint(e);
-  dragState = {
-    id: zone.id,
-    moved: false,
-    offsetX: p.x - Number(zone.pos_x),
-    offsetY: p.y - Number(zone.pos_y),
-    x: Number(zone.pos_x),
-    y: Number(zone.pos_y),
+function frameFraction(evt) {
+  const frame = $('#plan-frame');
+  const r = frame.getBoundingClientRect();
+  return {
+    x: Math.min(1, Math.max(0, (evt.clientX - r.left) / r.width)),
+    y: Math.min(1, Math.max(0, (evt.clientY - r.top) / r.height)),
   };
-  g.setPointerCapture(e.pointerId);
-  g.classList.add('dragging');
-  e.preventDefault();
 }
 
-function onPlanPointerMove(e) {
-  if (!dragState) return;
-  const p = svgPoint(e);
-  const nx = Math.max(0, Math.round((p.x - dragState.offsetX) / SNAP_FT) * SNAP_FT);
-  const ny = Math.max(0, Math.round((p.y - dragState.offsetY) / SNAP_FT) * SNAP_FT);
-  if (nx !== dragState.x || ny !== dragState.y) dragState.moved = true;
-  dragState.x = nx;
-  dragState.y = ny;
-  const g = document.querySelector(`.plan-space[data-plan-id="${dragState.id}"]`);
-  if (g) g.setAttribute('transform', `translate(${nx} ${ny})`);
-}
+function onPlanStagePointerDown(e) {
+  if (!planImage) return;
 
-async function onPlanPointerUp() {
-  if (!dragState) return;
-  const drag = dragState;
-  dragState = null;
-
-  const zone = state.zones.find(z => z.id === drag.id);
-  if (!zone) return;
-
-  if (!drag.moved) {
-    selectedSpaceId = selectedSpaceId === drag.id ? null : drag.id;
+  if (!mappingZoneId) {
+    const box = e.target.closest('.hot-box');
+    selectedHotspotId = box ? Number(box.dataset.hotId) : null;
     renderPlan();
     return;
   }
 
-  zone.pos_x = drag.x;
-  zone.pos_y = drag.y;
-  selectedSpaceId = drag.id;
-  renderPlan();
-  await savePosition(zone);
+  const start = frameFraction(e);
+  hotspotDraw = { ...start, x2: start.x, y2: start.y };
+  const draw = $('#draw-box');
+  draw.classList.remove('hidden');
+  $('#plan-frame').setPointerCapture(e.pointerId);
+  e.preventDefault();
+}
+
+function onPlanStagePointerMove(e) {
+  if (!hotspotDraw) return;
+  const p = frameFraction(e);
+  hotspotDraw.x2 = p.x;
+  hotspotDraw.y2 = p.y;
+
+  const draw = $('#draw-box');
+  const left = Math.min(hotspotDraw.x, hotspotDraw.x2);
+  const top = Math.min(hotspotDraw.y, hotspotDraw.y2);
+  draw.style.left = `${left * 100}%`;
+  draw.style.top = `${top * 100}%`;
+  draw.style.width = `${Math.abs(hotspotDraw.x2 - hotspotDraw.x) * 100}%`;
+  draw.style.height = `${Math.abs(hotspotDraw.y2 - hotspotDraw.y) * 100}%`;
+}
+
+async function onPlanStagePointerUp() {
+  if (!hotspotDraw) return;
+  const drawn = hotspotDraw;
+  hotspotDraw = null;
+  $('#draw-box').classList.add('hidden');
+
+  const zoneId = mappingZoneId;
+  const payload = {
+    hot_x: Math.min(drawn.x, drawn.x2),
+    hot_y: Math.min(drawn.y, drawn.y2),
+    hot_w: Math.abs(drawn.x2 - drawn.x),
+    hot_h: Math.abs(drawn.y2 - drawn.y),
+  };
+
+  try {
+    await api(`/api/zones/${zoneId}/hotspot`, { method: 'PATCH', body: JSON.stringify(payload) });
+    mappingZoneId = null;
+    selectedHotspotId = zoneId;
+    await refreshAll();
+    toast('Area marked');
+  } catch (err) {
+    toast(err.message, 'err');
+    renderPlan();
+  }
 }
 
 function initPlan() {
-  const svg = $('#plan-canvas');
-  svg.addEventListener('pointerdown', onPlanPointerDown);
-  svg.addEventListener('pointermove', onPlanPointerMove);
-  svg.addEventListener('pointerup', onPlanPointerUp);
-  svg.addEventListener('pointercancel', onPlanPointerUp);
-}
+  const stage = $('#plan-stage');
+  stage.addEventListener('pointerdown', onPlanStagePointerDown);
+  stage.addEventListener('pointermove', onPlanStagePointerMove);
+  stage.addEventListener('pointerup', onPlanStagePointerUp);
+  stage.addEventListener('pointercancel', onPlanStagePointerUp);
 
+  document.addEventListener('change', e => {
+    if (e.target.id === 'plan-file') uploadPlanFile(e.target.files[0]);
+  });
+}
 // ---- Wiring ----
 document.addEventListener('DOMContentLoaded', () => {
   $all('.tab-btn').forEach(btn => {
@@ -963,18 +899,14 @@ document.addEventListener('DOMContentLoaded', () => {
       $all('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       $(`#${btn.dataset.tab}`).classList.add('active');
-      // The plan sizes its labels from the rendered width, which is zero while hidden.
       if (btn.dataset.tab === 'plan') renderPlan();
     });
-  });
-
-  window.addEventListener('resize', () => {
-    if ($('#plan').classList.contains('active')) renderPlan();
   });
 
   $('#lease-form').start_date.value = todayStr();
   initCalculator();
   initPlan();
+  loadPlanImage();
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', e => {
     if (e.target.id === 'modal-backdrop') closeModal();

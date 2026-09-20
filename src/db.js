@@ -18,9 +18,11 @@ db.exec(`
     width_ft REAL,
     height_ft REAL,
     wall_support INTEGER NOT NULL DEFAULT 0,
-    pos_x REAL,
-    pos_y REAL,
-    rotated INTEGER NOT NULL DEFAULT 0,
+    list_rate_per_day REAL,
+    hot_x REAL,
+    hot_y REAL,
+    hot_w REAL,
+    hot_h REAL,
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -51,6 +53,29 @@ db.exec(`
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS plan_image (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    data_url TEXT NOT NULL,
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zone_id INTEGER NOT NULL REFERENCES zones(id),
+    customer_name TEXT NOT NULL,
+    contact TEXT,
+    quantity INTEGER,
+    item_label TEXT,
+    item_l_ft REAL,
+    item_w_ft REAL,
+    item_h_ft REAL,
+    start_date TEXT,
+    estimated_capacity INTEGER,
+    fit_warning TEXT,
+    status TEXT NOT NULL DEFAULT 'awaiting_payment',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // Databases created before spaces had dimensions still need the newer columns.
@@ -59,9 +84,11 @@ for (const [column, definition] of [
   ['width_ft', 'REAL'],
   ['height_ft', 'REAL'],
   ['wall_support', 'INTEGER NOT NULL DEFAULT 0'],
-  ['pos_x', 'REAL'],
-  ['pos_y', 'REAL'],
-  ['rotated', 'INTEGER NOT NULL DEFAULT 0'],
+  ['list_rate_per_day', 'REAL'],
+  ['hot_x', 'REAL'],
+  ['hot_y', 'REAL'],
+  ['hot_w', 'REAL'],
+  ['hot_h', 'REAL'],
 ]) {
   const exists = db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('zones', column);
   if (!exists) db.exec(`ALTER TABLE zones ADD COLUMN ${column} ${definition}`);

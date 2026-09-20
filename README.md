@@ -6,9 +6,10 @@ version built to test the idea with real numbers before adding more features.
 ## What it does
 
 - **Spaces** — mark out your basement into named spaces, each with a length, width
-  and height (so floor area and volume are worked out for you) and a note of how much
-  wall support it has: open on all sides, against one wall, a corner, or an alcove.
-  Edit or delete them; a space with leases on record can't be deleted by accident.
+  and height (so floor area and volume are worked out for you), a listed rate per day,
+  and a note of how much wall support it has: open on all sides, against one wall, a
+  corner, or an alcove. Edit or delete them; a space with leases on record can't be
+  deleted by accident.
 - **Vendors** — who you're renting to, with a count of their leases.
 - **Leases** — assign a vendor to a space at a daily rate starting on a date.
   A space can only have one active lease at a time; end a lease to free it up,
@@ -21,25 +22,41 @@ version built to test the idea with real numbers before adding more features.
 - **Dashboard** — occupancy, total daily rent from active leases, and total
   outstanding dues across all leases.
 
-### Floor plan
+### Your layout drawing
 
-A to-scale top-down plan of the basement. Every space is drawn from the dimensions
-recorded on the Spaces tab, coloured green for vacant and red for taken, with the
-vendor's name on it.
+You upload a picture of your own basement layout — the one with the spaces marked and
+named on it — and then draw a box over each area to make it tappable. Boxes are stored
+as a share of the picture rather than in pixels, so they stay in place at any screen
+size, and the overlay only tints an area rather than labelling it, so your own markings
+stay readable.
 
-- **Drag** a space to move it; it snaps to the foot. Works with a finger as well as a
-  mouse, so you can lay the plan out on a phone while standing in the basement.
-- **Tap** a space to select it, then rotate it 90° (a 25 × 20 space might run either
-  way in the real room), open its lease, or take it off the plan.
-- Spaces can't be resized here — size comes from their recorded dimensions, so there
-  is only ever one source of truth for how big a space is.
-- Overlapping spaces are flagged in amber rather than blocked, since a mezzanine may
-  legitimately sit above another space.
-- **Auto-arrange** drops any space that isn't on the plan yet into the first free gap,
-  which is a quicker starting point than placing six of them by hand.
+PNG, JPEG or WebP, up to about 6 MB. Only areas you have marked appear to customers.
+Until you upload one, the sample data ships a placeholder drawing so the booking flow
+can be seen working.
 
-Wall support is recorded per space rather than inferred from the plan — the plan has
-no basement outline, so it can't know which edges are walls.
+### Customer booking page — `/book`
+
+A separate page you can send to customers. It shows none of the admin: no vendor names,
+no other tenants' rates, no lease history.
+
+1. **Pick a space.** Tap an area on the drawing. Press and hold to see its floor space,
+   height, footprint and rate before committing. Areas already let are marked as taken
+   and can't be picked.
+2. **What you're storing.** How many, and what kind of thing. Based on a typical size
+   for that kind of item, it gives a *soft caution* if the quantity looks like more than
+   the space will hold — it never blocks, since the customer knows their goods better
+   than the estimate does. Ticking "I know the exact size" swaps the typical figures for
+   theirs and re-checks.
+3. **Confirm.** Summary, dates, and the cost at the space's listed rate. Submitting
+   records the enquiry and lands on the payment step.
+
+Enquiries arrive on the **Enquiries** tab of the admin, including the fit caution the
+customer saw, so you know if they were warned. An enquiry is not a lease — create the
+lease on the Leases tab once you've agreed terms.
+
+**Payment is not connected.** The final step is a clearly-marked placeholder. Wiring a
+real provider needs an account, API keys and a webhook to confirm payment before a space
+is actually held.
 
 ### Space picker
 
@@ -125,7 +142,8 @@ Amounts render as `₹` with Indian digit grouping. Both are set at the top of
 
 ## Not included yet
 
-Intentionally left out until the idea is validated: invoices/PDFs, multi-warehouse
-support, login/accounts, payment gateways, and reminders/notifications. The floor
-plan has no basement outline and no pillars or obstructions — spaces float on a bare
-grid. Ask and we can add any of these next.
+Intentionally left out until the idea is validated: real payment processing,
+invoices/PDFs, multi-warehouse support, and login/accounts — note that the admin is
+currently open to anyone with the link, which is fine for a prototype but not for
+something customers can reach. Booking an area does not hold it: two customers could
+enquire about the same space, and only the lease you create makes it taken.
