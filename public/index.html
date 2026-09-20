@@ -11,6 +11,7 @@
   <h1>Warehouse Rental</h1>
   <nav>
     <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="plan">Floor plan</button>
     <button class="tab-btn" data-tab="zones">Spaces</button>
     <button class="tab-btn" data-tab="vendors">Vendors</button>
     <button class="tab-btn" data-tab="leases">Leases</button>
@@ -75,6 +76,31 @@
       <button data-action="seed">Load sample data</button>
       <button data-action="reset" class="danger-text">Clear everything</button>
     </div>
+  </section>
+
+  <section id="plan" class="tab-panel">
+    <div class="plan-bar">
+      <div class="plan-legend">
+        <span><i class="swatch vacant"></i> Vacant</span>
+        <span><i class="swatch taken"></i> Taken</span>
+        <span><i class="swatch overlap"></i> Overlapping</span>
+      </div>
+      <div class="plan-tools">
+        <button data-action="plan-arrange">Auto-arrange unplaced</button>
+      </div>
+    </div>
+
+    <p class="intro-line" id="plan-hint">
+      Drag a space to move it. Tap one to select it, then rotate it or take it off the plan.
+      Everything is drawn to scale from the dimensions on the Spaces tab.
+    </p>
+
+    <div id="plan-canvas-wrap">
+      <svg id="plan-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div id="plan-selection"></div>
+    <div id="plan-tray"></div>
   </section>
 
   <section id="zones" class="tab-panel">

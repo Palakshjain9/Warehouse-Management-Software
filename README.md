@@ -21,6 +21,26 @@ version built to test the idea with real numbers before adding more features.
 - **Dashboard** — occupancy, total daily rent from active leases, and total
   outstanding dues across all leases.
 
+### Floor plan
+
+A to-scale top-down plan of the basement. Every space is drawn from the dimensions
+recorded on the Spaces tab, coloured green for vacant and red for taken, with the
+vendor's name on it.
+
+- **Drag** a space to move it; it snaps to the foot. Works with a finger as well as a
+  mouse, so you can lay the plan out on a phone while standing in the basement.
+- **Tap** a space to select it, then rotate it 90° (a 25 × 20 space might run either
+  way in the real room), open its lease, or take it off the plan.
+- Spaces can't be resized here — size comes from their recorded dimensions, so there
+  is only ever one source of truth for how big a space is.
+- Overlapping spaces are flagged in amber rather than blocked, since a mezzanine may
+  legitimately sit above another space.
+- **Auto-arrange** drops any space that isn't on the plan yet into the first free gap,
+  which is a quicker starting point than placing six of them by hand.
+
+Wall support is recorded per space rather than inferred from the plan — the plan has
+no basement outline, so it can't know which edges are walls.
+
 ### Space picker
 
 A separate tab that answers "will my goods fit, and where?". Describe the load the way
@@ -105,6 +125,7 @@ Amounts render as `₹` with Indian digit grouping. Both are set at the top of
 
 ## Not included yet
 
-Intentionally left out until the idea is validated: a visual floor plan of the
-spaces, invoices/PDFs, multi-warehouse support, login/accounts, payment gateways,
-and reminders/notifications. Ask and we can add any of these next.
+Intentionally left out until the idea is validated: invoices/PDFs, multi-warehouse
+support, login/accounts, payment gateways, and reminders/notifications. The floor
+plan has no basement outline and no pillars or obstructions — spaces float on a bare
+grid. Ask and we can add any of these next.

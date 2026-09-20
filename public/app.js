@@ -317,6 +317,7 @@ async function refreshAll() {
   await loadDashboard();
   refreshRateHint();
   renderCalcResults();
+  renderPlan();
 }
 
 async function submitForm(form, errorEl, request) {
@@ -353,6 +354,50 @@ const actions = {
   'vendor-edit': id => openVendorEdit(id),
   'lease-edit': id => openLeaseEdit(id),
   'modal-cancel': () => closeModal(),
+
+  async 'plan-place'(id) {
+    const zone = state.zones.find(z => z.id === Number(id));
+    const { w, h } = planFootprint(zone);
+    const spot = findFreeSpot(w, h, planRects());
+    zone.pos_x = spot.x;
+    zone.pos_y = spot.y;
+    selectedSpaceId = zone.id;
+    renderPlan();
+    await savePosition(zone);
+  },
+
+  async 'plan-arrange'() {
+    const unplaced = state.zones.filter(z => !isPlaced(z) && Number(z.length_ft) > 0 && Number(z.width_ft) > 0);
+    if (!unplaced.length) {
+      toast('Every measured space is already on the plan');
+      return;
+    }
+    for (const zone of unplaced) {
+      const { w, h } = planFootprint(zone);
+      const spot = findFreeSpot(w, h, planRects());
+      zone.pos_x = spot.x;
+      zone.pos_y = spot.y;
+      await savePosition(zone);
+    }
+    renderPlan();
+    toast(`Placed ${unplaced.length} space${unplaced.length === 1 ? '' : 's'}`);
+  },
+
+  async 'plan-rotate'(id) {
+    const zone = state.zones.find(z => z.id === Number(id));
+    zone.rotated = zone.rotated ? 0 : 1;
+    renderPlan();
+    await savePosition(zone);
+  },
+
+  async 'plan-unplace'(id) {
+    const zone = state.zones.find(z => z.id === Number(id));
+    zone.pos_x = null;
+    zone.pos_y = null;
+    selectedSpaceId = null;
+    renderPlan();
+    await savePosition(zone);
+  },
 
   'apply-max-stack'(maxStack) {
     $('#calc-form').stack.value = maxStack;
@@ -677,6 +722,239 @@ function initCalculator() {
 
   $('#calc-form').addEventListener('submit', e => e.preventDefault());
 }
+// ---- Floor plan ----
+const PLAN_PAD_FT = 6;
+const PLAN_MIN_W = 60;
+const PLAN_MIN_H = 40;
+const SNAP_FT = 1;
+
+let selectedSpaceId = null;
+let dragState = null;
+
+function isPlaced(z) {
+  return z.pos_x != null && z.pos_y != null && Number(z.length_ft) > 0 && Number(z.width_ft) > 0;
+}
+
+// A rotated space runs the other way round on the plan; its recorded dimensions don't change.
+function planFootprint(z) {
+  return z.rotated
+    ? { w: Number(z.width_ft), h: Number(z.length_ft) }
+    : { w: Number(z.length_ft), h: Number(z.width_ft) };
+}
+
+// SVG won't wrap or clip text, so trim it to what the box can hold. Roughly 0.55 em
+// per character is close enough for the sans-serif stack in use.
+function fitText(str, boxWidthFt, fontSizeFt) {
+  const maxChars = Math.floor((boxWidthFt * 0.88) / (fontSizeFt * 0.55));
+  if (str.length <= maxChars) return str;
+  return maxChars <= 1 ? '' : `${str.slice(0, maxChars - 1)}…`;
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+function planRects() {
+  return state.zones.filter(isPlaced).map(z => {
+    const { w, h } = planFootprint(z);
+    return { zone: z, id: z.id, x: Number(z.pos_x), y: Number(z.pos_y), w, h };
+  });
+}
+
+function findFreeSpot(w, h, occupied) {
+  const limitX = Math.max(PLAN_MIN_W, ...occupied.map(o => o.x + o.w), 0);
+  const limitY = Math.max(PLAN_MIN_H, ...occupied.map(o => o.y + o.h), 0) + h + 10;
+  for (let y = 0; y <= limitY; y += 1) {
+    for (let x = 0; x + w <= limitX + w; x += 1) {
+      const candidate = { x, y, w, h };
+      if (!occupied.some(o => rectsOverlap(candidate, o))) return { x, y };
+    }
+  }
+  return { x: 0, y: limitY };
+}
+
+function svgPoint(evt) {
+  const svg = $('#plan-canvas');
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  return new DOMPoint(evt.clientX, evt.clientY).matrixTransform(ctm.inverse());
+}
+
+function renderPlan() {
+  const svg = $('#plan-canvas');
+  if (!svg) return;
+
+  const rects = planRects();
+  const extentX = Math.max(PLAN_MIN_W, ...rects.map(r => r.x + r.w)) + PLAN_PAD_FT;
+  const extentY = Math.max(PLAN_MIN_H, ...rects.map(r => r.y + r.h)) + PLAN_PAD_FT;
+  svg.setAttribute('viewBox', `0 0 ${extentX} ${extentY}`);
+  svg.style.aspectRatio = `${extentX} / ${extentY}`;
+
+  let grid = '';
+  for (let x = 0; x <= extentX; x += 5) grid += `M${x} 0 V${extentY} `;
+  for (let y = 0; y <= extentY; y += 5) grid += `M0 ${y} H${extentX} `;
+
+  // Labels are sized in screen pixels converted back into plan feet, so they stay
+  // readable on a phone instead of shrinking with the drawing.
+  const renderedWidth = svg.getBoundingClientRect().width;
+  const pxPerFt = renderedWidth > 0 ? renderedWidth / extentX : 12;
+  const ft = px => px / pxPerFt;
+
+  const shapes = rects.map(r => {
+    const z = r.zone;
+    const overlapping = rects.some(o => o.id !== r.id && rectsOverlap(r, o));
+    const taken = !!z.active_lease_id;
+    const fontSize = Math.min(ft(15), Math.min(r.w, r.h) * 0.2);
+    const roomy = r.h >= fontSize * 4.2 && r.w >= fontSize * 5;
+
+    const classes = ['plan-space', taken ? 'taken' : 'vacant'];
+    if (overlapping) classes.push('overlap');
+    if (selectedSpaceId === z.id) classes.push('selected');
+
+    const subSize = fontSize * 0.72;
+    const lines = [
+      `<text class="plan-name" x="${r.w / 2}" y="${roomy ? r.h / 2 - fontSize * 0.5 : r.h / 2 + fontSize * 0.35}" font-size="${fontSize}">${escapeHtml(fitText(z.name, r.w, fontSize))}</text>`,
+    ];
+    if (roomy) {
+      lines.push(`<text class="plan-sub" x="${r.w / 2}" y="${r.h / 2 + fontSize * 0.8}" font-size="${subSize}">${fitText(`${r.w} × ${r.h} ft`, r.w, subSize)}</text>`);
+      lines.push(`<text class="plan-sub" x="${r.w / 2}" y="${r.h / 2 + fontSize * 2}" font-size="${subSize}">${escapeHtml(fitText(taken ? z.vendor_name : 'Vacant', r.w, subSize))}</text>`);
+    }
+
+    return `<g class="${classes.join(' ')}" data-plan-id="${z.id}" transform="translate(${r.x} ${r.y})">
+        <rect width="${r.w}" height="${r.h}" rx="0.4"></rect>
+        ${lines.join('')}
+      </g>`;
+  }).join('');
+
+  svg.innerHTML = `<path class="plan-grid" d="${grid}"></path>${shapes}`;
+  renderPlanSelection();
+  renderPlanTray();
+}
+
+function renderPlanSelection() {
+  const box = $('#plan-selection');
+  const z = state.zones.find(s => s.id === selectedSpaceId);
+  if (!z || !isPlaced(z)) {
+    box.innerHTML = '';
+    return;
+  }
+  const { w, h } = planFootprint(z);
+  box.innerHTML = `
+    <div class="plan-selected">
+      <div>
+        <strong>${escapeHtml(z.name)}</strong>
+        <span class="muted-inline">${w} × ${h} ft on the plan ·
+          ${z.active_lease_id ? `taken by ${escapeHtml(z.vendor_name)}` : 'vacant'}</span>
+      </div>
+      <div class="plan-selected-actions">
+        <button data-action="plan-rotate" data-id="${z.id}">Rotate 90°</button>
+        ${z.active_lease_id ? `<button data-action="lease-detail" data-id="${z.active_lease_id}">View lease</button>` : ''}
+        <button data-action="plan-unplace" data-id="${z.id}">Take off plan</button>
+      </div>
+    </div>`;
+}
+
+function renderPlanTray() {
+  const tray = $('#plan-tray');
+  const unplaced = state.zones.filter(z => !isPlaced(z));
+  if (!unplaced.length) {
+    tray.innerHTML = '';
+    return;
+  }
+  tray.innerHTML = `
+    <h4>Not on the plan yet</h4>
+    <div class="tray-items">
+      ${unplaced.map(z => {
+        const measured = Number(z.length_ft) > 0 && Number(z.width_ft) > 0;
+        return `<div class="tray-item">
+          <span>${escapeHtml(z.name)}</span>
+          <span class="muted-inline">${measured ? `${z.length_ft} × ${z.width_ft} ft` : 'no dimensions recorded'}</span>
+          ${measured ? `<button data-action="plan-place" data-id="${z.id}">Place</button>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function savePosition(zone) {
+  try {
+    await api(`/api/zones/${zone.id}/position`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pos_x: zone.pos_x, pos_y: zone.pos_y, rotated: zone.rotated }),
+    });
+  } catch (err) {
+    toast(err.message, 'err');
+    await refreshAll();
+  }
+}
+
+function onPlanPointerDown(e) {
+  const g = e.target.closest('.plan-space');
+  if (!g) {
+    if (selectedSpaceId !== null) {
+      selectedSpaceId = null;
+      renderPlan();
+    }
+    return;
+  }
+
+  const zone = state.zones.find(z => z.id === Number(g.dataset.planId));
+  if (!zone) return;
+
+  const p = svgPoint(e);
+  dragState = {
+    id: zone.id,
+    moved: false,
+    offsetX: p.x - Number(zone.pos_x),
+    offsetY: p.y - Number(zone.pos_y),
+    x: Number(zone.pos_x),
+    y: Number(zone.pos_y),
+  };
+  g.setPointerCapture(e.pointerId);
+  g.classList.add('dragging');
+  e.preventDefault();
+}
+
+function onPlanPointerMove(e) {
+  if (!dragState) return;
+  const p = svgPoint(e);
+  const nx = Math.max(0, Math.round((p.x - dragState.offsetX) / SNAP_FT) * SNAP_FT);
+  const ny = Math.max(0, Math.round((p.y - dragState.offsetY) / SNAP_FT) * SNAP_FT);
+  if (nx !== dragState.x || ny !== dragState.y) dragState.moved = true;
+  dragState.x = nx;
+  dragState.y = ny;
+  const g = document.querySelector(`.plan-space[data-plan-id="${dragState.id}"]`);
+  if (g) g.setAttribute('transform', `translate(${nx} ${ny})`);
+}
+
+async function onPlanPointerUp() {
+  if (!dragState) return;
+  const drag = dragState;
+  dragState = null;
+
+  const zone = state.zones.find(z => z.id === drag.id);
+  if (!zone) return;
+
+  if (!drag.moved) {
+    selectedSpaceId = selectedSpaceId === drag.id ? null : drag.id;
+    renderPlan();
+    return;
+  }
+
+  zone.pos_x = drag.x;
+  zone.pos_y = drag.y;
+  selectedSpaceId = drag.id;
+  renderPlan();
+  await savePosition(zone);
+}
+
+function initPlan() {
+  const svg = $('#plan-canvas');
+  svg.addEventListener('pointerdown', onPlanPointerDown);
+  svg.addEventListener('pointermove', onPlanPointerMove);
+  svg.addEventListener('pointerup', onPlanPointerUp);
+  svg.addEventListener('pointercancel', onPlanPointerUp);
+}
+
 // ---- Wiring ----
 document.addEventListener('DOMContentLoaded', () => {
   $all('.tab-btn').forEach(btn => {
@@ -685,11 +963,18 @@ document.addEventListener('DOMContentLoaded', () => {
       $all('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       $(`#${btn.dataset.tab}`).classList.add('active');
+      // The plan sizes its labels from the rendered width, which is zero while hidden.
+      if (btn.dataset.tab === 'plan') renderPlan();
     });
+  });
+
+  window.addEventListener('resize', () => {
+    if ($('#plan').classList.contains('active')) renderPlan();
   });
 
   $('#lease-form').start_date.value = todayStr();
   initCalculator();
+  initPlan();
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', e => {
     if (e.target.id === 'modal-backdrop') closeModal();

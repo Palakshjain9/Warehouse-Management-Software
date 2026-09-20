@@ -5,7 +5,8 @@ const router = Router();
 
 const SELECT_ZONES = `
   SELECT
-    z.id, z.name, z.size_sqft, z.length_ft, z.width_ft, z.height_ft, z.wall_support, z.notes,
+    z.id, z.name, z.size_sqft, z.length_ft, z.width_ft, z.height_ft, z.wall_support,
+    z.pos_x, z.pos_y, z.rotated, z.notes,
     (z.length_ft * z.width_ft * z.height_ft) AS volume_cuft,
     l.id AS active_lease_id, l.daily_rate AS active_rate, l.start_date AS active_start,
     v.id AS vendor_id, v.name AS vendor_name
@@ -85,6 +86,24 @@ router.patch('/:id', (req, res) => {
     }
     throw e;
   }
+});
+
+// Kept apart from the main PATCH so dragging a space around the plan never has to
+// satisfy dimension validation.
+router.patch('/:id/position', (req, res) => {
+  const zone = db.prepare('SELECT id FROM zones WHERE id = ?').get(req.params.id);
+  if (!zone) return res.status(404).json({ error: 'Space not found' });
+
+  const { pos_x, pos_y, rotated } = req.body ?? {};
+  const onPlan = pos_x !== null && pos_x !== undefined && pos_y !== null && pos_y !== undefined;
+
+  db.prepare('UPDATE zones SET pos_x = ?, pos_y = ?, rotated = ? WHERE id = ?').run(
+    onPlan ? Number(pos_x) : null,
+    onPlan ? Number(pos_y) : null,
+    rotated ? 1 : 0,
+    req.params.id
+  );
+  res.json({ ok: true });
 });
 
 router.delete('/:id', (req, res) => {

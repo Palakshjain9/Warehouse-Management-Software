@@ -18,6 +18,9 @@ db.exec(`
     width_ft REAL,
     height_ft REAL,
     wall_support INTEGER NOT NULL DEFAULT 0,
+    pos_x REAL,
+    pos_y REAL,
+    rotated INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -56,6 +59,9 @@ for (const [column, definition] of [
   ['width_ft', 'REAL'],
   ['height_ft', 'REAL'],
   ['wall_support', 'INTEGER NOT NULL DEFAULT 0'],
+  ['pos_x', 'REAL'],
+  ['pos_y', 'REAL'],
+  ['rotated', 'INTEGER NOT NULL DEFAULT 0'],
 ]) {
   const exists = db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('zones', column);
   if (!exists) db.exec(`ALTER TABLE zones ADD COLUMN ${column} ${definition}`);
