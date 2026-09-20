@@ -8,13 +8,14 @@ export function clearAll() {
   db.exec('DELETE FROM zones');
 }
 
+// [name, length ft, width ft, height ft, walls, notes]
 const ZONES = [
-  ['Bay A1', 500, 'Ground floor, near main shutter'],
-  ['Bay A2', 500, 'Ground floor'],
-  ['Bay B1', 750, 'Ground floor, rack-fitted'],
-  ['Bay B2', 750, 'Ground floor, rack-fitted'],
-  ['Mezzanine M1', 300, 'Upper level, light goods only'],
-  ['Dock Side D1', 200, 'Next to loading dock'],
+  ['Bay A1', 25, 20, 12, 2, 'Corner by the main shutter'],
+  ['Bay A2', 25, 20, 12, 1, 'Along the east wall'],
+  ['Bay B1', 30, 25, 12, 1, 'Along the north wall, rack-fitted'],
+  ['Bay B2', 30, 25, 12, 0, 'Island in the middle of the floor'],
+  ['Mezzanine M1', 20, 15, 8, 3, 'Upper level alcove, light goods only'],
+  ['Dock Side D1', 20, 10, 12, 1, 'Next to the loading dock'],
 ];
 
 const VENDORS = [
@@ -37,8 +38,12 @@ const LEASES = [
 export function seedDemoData() {
   clearAll();
 
-  const insertZone = db.prepare('INSERT INTO zones (name, size_sqft, notes) VALUES (?, ?, ?)');
-  const zoneIds = ZONES.map(z => Number(insertZone.run(...z).lastInsertRowid));
+  const insertZone = db.prepare(`
+    INSERT INTO zones (name, size_sqft, length_ft, width_ft, height_ft, wall_support, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const zoneIds = ZONES.map(([name, l, w, h, walls, notes]) =>
+    Number(insertZone.run(name, l * w, l, w, h, walls, notes).lastInsertRowid));
 
   const insertVendor = db.prepare('INSERT INTO vendors (name, contact, notes) VALUES (?, ?, ?)');
   const vendorIds = VENDORS.map(v => Number(insertVendor.run(...v).lastInsertRowid));

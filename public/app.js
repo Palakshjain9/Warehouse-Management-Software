@@ -95,7 +95,7 @@ async function loadDashboard() {
   tbody.innerHTML = active.map(l => {
     const bal = balanceCell(l.balance);
     return `<tr>
-      <td data-label="Zone">${escapeHtml(l.zone_name)}</td>
+      <td data-label="Space">${escapeHtml(l.zone_name)}</td>
       <td data-label="Vendor">${escapeHtml(l.vendor_name)}</td>
       <td data-label="Rate/day">${money(l.daily_rate)}</td>
       <td data-label="Start">${fmtDate(l.start_date)}</td>
@@ -115,15 +115,20 @@ async function loadZones() {
   state.zones = await api('/api/zones');
   const tbody = $('#zones-table tbody');
   if (state.zones.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No zones yet. Add one above.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No spaces yet. Add one above.</td></tr>';
   } else {
     tbody.innerHTML = state.zones.map(z => `<tr>
-      <td data-label="Name">${escapeHtml(z.name)}</td>
-      <td data-label="Size">${z.size_sqft == null ? '—' : Number(z.size_sqft).toLocaleString(LOCALE)}</td>
+      <td data-label="Name">
+        ${escapeHtml(z.name)}
+        ${z.notes ? `<div class="cell-note">${escapeHtml(z.notes)}</div>` : ''}
+      </td>
+      <td data-label="Dimensions">${z.length_ft ? `${z.length_ft} × ${z.width_ft} × ${z.height_ft} ft` : '—'}</td>
+      <td data-label="Floor">${z.size_sqft == null ? '—' : `${Number(z.size_sqft).toLocaleString(LOCALE)} sq ft`}</td>
+      <td data-label="Volume">${z.volume_cuft ? `${Math.round(z.volume_cuft).toLocaleString(LOCALE)} cu ft` : '—'}</td>
+      <td data-label="Walls">${escapeHtml(wallInfo(z.wall_support).short)}</td>
       <td data-label="Status">${z.active_lease_id
-        ? `<span class="badge occupied">Occupied — ${escapeHtml(z.vendor_name)}</span>`
+        ? `<span class="badge occupied">Taken — ${escapeHtml(z.vendor_name)}</span>`
         : '<span class="badge vacant">Vacant</span>'}</td>
-      <td data-label="Notes">${escapeHtml(z.notes || '')}</td>
       <td data-label="" class="row-actions">
         <button data-action="zone-edit" data-id="${z.id}">Edit</button>
         <button data-action="zone-delete" data-id="${z.id}" class="danger-text">Delete</button>
@@ -135,7 +140,7 @@ async function loadZones() {
   const vacant = state.zones.filter(z => !z.active_lease_id);
   select.innerHTML = vacant.length
     ? vacant.map(z => `<option value="${z.id}">${escapeHtml(z.name)}${z.size_sqft ? ` (${z.size_sqft} sq ft)` : ''}</option>`).join('')
-    : '<option value="">No vacant zones</option>';
+    : '<option value="">No vacant spaces</option>';
 }
 
 // ---- Vendors ----
@@ -174,7 +179,7 @@ async function loadLeases() {
   tbody.innerHTML = state.leases.map(l => {
     const bal = balanceCell(l.balance);
     return `<tr class="${l.end_date ? 'row-ended' : ''}">
-      <td data-label="Zone">${escapeHtml(l.zone_name)}</td>
+      <td data-label="Space">${escapeHtml(l.zone_name)}</td>
       <td data-label="Vendor">${escapeHtml(l.vendor_name)}</td>
       <td data-label="Rate/day">${money(l.daily_rate)}</td>
       <td data-label="Start">${fmtDate(l.start_date)}</td>
@@ -252,10 +257,15 @@ async function openLeaseDetail(id) {
 function openZoneEdit(id) {
   const z = state.zones.find(x => x.id === Number(id));
   if (!z) return;
-  showModal('Edit zone', `
+  showModal('Edit space', `
     <form id="edit-form" data-kind="zone" data-id="${z.id}">
       <label>Name<input type="text" name="name" value="${escapeHtml(z.name)}" required></label>
-      <label>Size (sq ft)<input type="number" name="size_sqft" min="0" step="any" value="${z.size_sqft ?? ''}"></label>
+      <label>Length (ft)<input type="number" name="length_ft" min="0" step="any" value="${z.length_ft ?? ''}" required></label>
+      <label>Width (ft)<input type="number" name="width_ft" min="0" step="any" value="${z.width_ft ?? ''}" required></label>
+      <label>Height (ft)<input type="number" name="height_ft" min="0" step="any" value="${z.height_ft ?? ''}" required></label>
+      <label>Wall support<select name="wall_support">${WALL_OPTIONS
+        .map(w => `<option value="${w.value}"${Number(z.wall_support) === w.value ? ' selected' : ''}>${escapeHtml(w.label)}</option>`)
+        .join('')}</select></label>
       <label>Notes<input type="text" name="notes" value="${escapeHtml(z.notes || '')}"></label>
       <p class="error" id="edit-error"></p>
       <div class="modal-actions">
@@ -442,18 +452,33 @@ document.addEventListener('submit', async e => {
   }
 });
 
-// ---- Space calculator ----
+// ---- Space picker ----
 const M_TO_FT = 3.280839895;
-const CBM_TO_CUFT = 35.3146667;
+
+// Clearance left under beams, lights and sprinklers rather than stacking to the slab.
+const HEADROOM_FT = 1;
+
+// How much of a space's floor you actually get to use. A corner only needs access from
+// two sides; an island in the middle of the floor needs it all the way round.
+const WALL_OPTIONS = [
+  { value: 0, label: 'Open on all sides', short: 'open on all sides', usable: 0.60 },
+  { value: 1, label: 'Against one wall', short: 'one wall', usable: 0.70 },
+  { value: 2, label: 'Corner — two walls', short: 'corner, two walls', usable: 0.75 },
+  { value: 3, label: 'Alcove — three walls', short: 'alcove, three walls', usable: 0.80 },
+];
+
+function wallInfo(n) {
+  return WALL_OPTIONS.find(w => w.value === Number(n)) || WALL_OPTIONS[0];
+}
 
 // Starting points only — every dimension stays editable, because real stock varies.
 const ITEM_PRESETS = [
-  { id: 'pallet-std', label: 'Pallet, standard (1200 × 1000 mm)', l: 1.2, w: 1.0, h: 1.2 },
-  { id: 'pallet-euro', label: 'Pallet, euro (1200 × 800 mm)', l: 1.2, w: 0.8, h: 1.2 },
-  { id: 'bale', label: 'Pressed bale (1100 × 550 mm)', l: 1.1, w: 0.55, h: 0.7 },
-  { id: 'carton-lg', label: 'Carton, large (600 × 400 mm)', l: 0.6, w: 0.4, h: 0.4 },
-  { id: 'carton-sm', label: 'Carton, small (400 × 300 mm)', l: 0.4, w: 0.3, h: 0.3 },
-  { id: 'drum', label: 'Drum, 200 litre (ø 580 mm)', l: 0.58, w: 0.58, h: 0.89 },
+  { id: 'carton-lg', label: 'Carton, large (600 × 400 × 400 mm)', l: 0.6, w: 0.4, h: 0.4 },
+  { id: 'carton-sm', label: 'Carton, small (400 × 300 × 300 mm)', l: 0.4, w: 0.3, h: 0.3 },
+  { id: 'bag', label: 'Sack or bag, 50 kg (900 × 550 × 250 mm)', l: 0.9, w: 0.55, h: 0.25 },
+  { id: 'bale', label: 'Pressed bale (1100 × 550 × 700 mm)', l: 1.1, w: 0.55, h: 0.7 },
+  { id: 'pallet-std', label: 'Pallet, loaded (1200 × 1000 × 1200 mm)', l: 1.2, w: 1.0, h: 1.2 },
+  { id: 'drum', label: 'Drum, 200 litre (ø 580 × 890 mm)', l: 0.58, w: 0.58, h: 0.89 },
   { id: 'custom', label: 'Something else — I’ll type the size', l: null, w: null, h: null },
 ];
 
@@ -461,51 +486,39 @@ function sqft(n) {
   return Number(n).toLocaleString(LOCALE, { maximumFractionDigits: n < 100 ? 1 : 0 });
 }
 
+function whole(n) {
+  return Math.round(Number(n)).toLocaleString(LOCALE);
+}
+
 function calcInputs() {
   return Object.fromEntries(new FormData($('#calc-form')).entries());
 }
 
-function computeEstimate(d) {
-  const util = Number(d.utilisation) || 0.7;
-  const clearHeight = Number(d.clear_height) || 0;
-  let storageSqft;
-  let stackHeightFt;
-  let detail;
+function itemFromInputs(d) {
+  const toFt = d.dim_unit === 'm' ? M_TO_FT : 1;
+  const l = Number(d.item_l) * toFt;
+  const w = Number(d.item_w) * toFt;
+  const h = Number(d.item_h) * toFt;
+  const qty = Math.floor(Number(d.quantity) || 0);
+  if (!(l > 0 && w > 0 && h > 0 && qty > 0)) return null;
 
-  if (d.mode === 'items') {
-    const toFt = d.dim_unit === 'm' ? M_TO_FT : 1;
-    const l = Number(d.item_l) * toFt;
-    const w = Number(d.item_w) * toFt;
-    const h = Number(d.item_h) * toFt;
-    const qty = Math.floor(Number(d.quantity) || 0);
-    const stack = Math.max(1, Math.floor(Number(d.stack) || 1));
-    if (!(l > 0 && w > 0 && h > 0 && qty > 0)) return null;
+  const cap = Math.floor(Number(d.max_stack) || 0);
+  return { l, w, h, qty, footprint: l * w, maxStack: cap > 0 ? cap : null };
+}
 
-    const unitFootprint = l * w;
-    const positions = Math.ceil(qty / stack);
-    storageSqft = positions * unitFootprint;
-    stackHeightFt = stack * h;
-    detail = {
-      qty, stack, positions, unitFootprint, unitHeightFt: h,
-      maxStack: clearHeight > 0 ? Math.floor(clearHeight / h) : null,
-    };
-  } else {
-    const cuft = Number(d.volume) * (d.vol_unit === 'cbm' ? CBM_TO_CUFT : 1);
-    stackHeightFt = Number(d.vol_stack_ft) || 0;
-    if (!(cuft > 0 && stackHeightFt > 0)) return null;
-    storageSqft = cuft / stackHeightFt;
-    detail = { cuft };
-  }
+function spaceCapacity(zone, item) {
+  const wall = wallInfo(zone.wall_support);
+  const floorSqft = Number(zone.size_sqft) || 0;
+  const usableFloor = floorSqft * wall.usable;
+  const usableHeight = Math.max(Number(zone.height_ft) - HEADROOM_FT, 0);
 
-  const totalSqft = storageSqft / util;
-  return {
-    mode: d.mode,
-    util, clearHeight, storageSqft, stackHeightFt, totalSqft,
-    aisleSqft: totalSqft - storageSqft,
-    heightOk: clearHeight <= 0 || stackHeightFt <= clearHeight,
-    rate: Number(d.rate_sqft) || 0,
-    ...detail,
-  };
+  let layers = Math.floor(usableHeight / item.h);
+  const limitedByRule = item.maxStack !== null && item.maxStack < layers;
+  if (limitedByRule) layers = item.maxStack;
+  layers = Math.max(layers, 0);
+
+  const perLayer = Math.floor(usableFloor / item.footprint);
+  return { wall, floorSqft, usableFloor, usableHeight, layers, perLayer, limitedByRule, capacity: perLayer * layers };
 }
 
 function averageRatePerSqft() {
@@ -515,115 +528,111 @@ function averageRatePerSqft() {
   return active.reduce((sum, l) => sum + l.daily_rate / sizes.get(l.zone_id), 0) / active.length;
 }
 
-function matchZones(needed) {
-  const vacant = state.zones.filter(z => !z.active_lease_id && Number(z.size_sqft) > 0);
-  const fits = vacant.filter(z => z.size_sqft >= needed).sort((a, b) => a.size_sqft - b.size_sqft);
-  const short = vacant.filter(z => z.size_sqft < needed).sort((a, b) => b.size_sqft - a.size_sqft);
+function capacityRow(r, item) {
+  const z = r.zone;
+  const fits = r.capacity >= item.qty;
+  const occupied = !!z.active_lease_id;
+  const status = occupied
+    ? `taken — ${escapeHtml(z.vendor_name)}`
+    : 'vacant';
 
-  let combo = null;
-  if (!fits.length && short.length) {
-    const picked = [];
-    let sum = 0;
-    for (const z of short) {
-      picked.push(z);
-      sum += z.size_sqft;
-      if (sum >= needed) break;
-    }
-    if (sum >= needed) combo = { zones: picked, total: sum };
-  }
-  return { vacant, fits, short, combo };
+  const verdict = r.capacity === 0
+    ? 'Too low for even one layer'
+    : fits
+      ? `Holds about ${whole(r.capacity)} — room for ${whole(r.capacity - item.qty)} more`
+      : `Holds about ${whole(r.capacity)} — ${whole(item.qty - r.capacity)} short`;
+
+  return `<li class="${fits && !occupied ? 'fit-yes' : occupied ? 'fit-taken' : 'fit-no'}">
+      <div class="fit-head">
+        <span class="fit-name">${escapeHtml(z.name)}</span>
+        <span class="fit-verdict">${verdict}</span>
+      </div>
+      <div class="fit-meta">
+        ${z.length_ft} × ${z.width_ft} × ${z.height_ft} ft · ${r.wall.short} · ${status}
+      </div>
+      <div class="fit-working">
+        ${sqft(r.usableFloor)} sq ft usable (${Math.round(r.wall.usable * 100)}% of ${sqft(r.floorSqft)})
+        ÷ ${sqft(item.footprint)} sq ft = ${whole(r.perLayer)} per layer,
+        ${whole(r.layers)} layer${r.layers === 1 ? '' : 's'} high${r.limitedByRule ? ' (your limit)' : ` in ${sqft(r.usableHeight)} ft usable height`}
+      </div>
+    </li>`;
 }
 
 function renderCalcResults() {
   const box = $('#calc-results');
-  const est = computeEstimate(calcInputs());
+  const d = calcInputs();
+  const item = itemFromInputs(d);
 
-  if (!est) {
-    box.innerHTML = '<p class="muted-line">Fill in a quantity and the size of one item to see an estimate.</p>';
+  if (!item) {
+    box.innerHTML = '<p class="muted-line">Enter how many you have and the size of one of them.</p>';
     return;
   }
 
-  const working = est.mode === 'items'
-    ? `
-      <div class="calc-row"><span>One ${est.stack > 1 ? 'item' : 'item'} takes up</span><span>${sqft(est.unitFootprint)} sq ft of floor</span></div>
-      <div class="calc-row"><span>Stacked ${est.stack} high, that needs</span><span>${est.positions.toLocaleString(LOCALE)} floor position${est.positions === 1 ? '' : 's'} <em>= ${est.qty.toLocaleString(LOCALE)} ÷ ${est.stack}, rounded up</em></span></div>
-      <div class="calc-row calc-sum"><span>Storage footprint</span><span>${sqft(est.storageSqft)} sq ft <em>= ${est.positions} × ${sqft(est.unitFootprint)}</em></span></div>`
-    : `
-      <div class="calc-row"><span>Goods volume</span><span>${sqft(est.cuft)} cu ft</span></div>
-      <div class="calc-row"><span>Stacked up to</span><span>${est.stackHeightFt} ft high</span></div>
-      <div class="calc-row calc-sum"><span>Storage footprint</span><span>${sqft(est.storageSqft)} sq ft <em>= ${sqft(est.cuft)} ÷ ${est.stackHeightFt}</em></span></div>`;
-
-  const heightNote = est.heightOk
-    ? `<div class="calc-row"><span>Stack height</span><span>${est.stackHeightFt.toFixed(1)} ft — fits under ${est.clearHeight} ft ✓</span></div>`
-    : '';
-
-  const heightWarning = est.heightOk ? '' : `
-    <div class="notice warn-notice">
-      <strong>That stack is too tall.</strong>
-      Stacking ${est.mode === 'items' ? `${est.stack} high at ${est.unitHeightFt.toFixed(1)} ft each` : ''}
-      needs ${est.stackHeightFt.toFixed(1)} ft, but the shed is ${est.clearHeight} ft clear.
-      ${est.mode === 'items' && est.maxStack >= 1
-        ? `You could stack ${est.maxStack} high instead.
-           <button data-action="apply-max-stack" data-id="${est.maxStack}">Use ${est.maxStack} high</button>`
-        : 'Lower the stack height to fit.'}
-    </div>`;
-
-  const rentBlock = est.rate > 0 ? `
-    <div class="calc-block">
-      <div class="calc-row"><span>At ${money(est.rate)} per sq ft per day</span><span>${money(Math.round(est.totalSqft * est.rate))} / day</span></div>
-      <div class="calc-row calc-total"><span>Roughly per 30 days</span><span>${money(Math.round(est.totalSqft * est.rate * 30))}</span></div>
-    </div>` : '';
-
-  const { vacant, fits, short, combo } = matchZones(est.totalSqft);
-
-  let zoneBlock;
-  if (!vacant.length) {
-    zoneBlock = '<p class="muted-line">No vacant zones with a recorded size to compare against right now.</p>';
-  } else {
-    const rows = [
-      ...fits.map(z => `<li class="fit-yes">
-          <span>${escapeHtml(z.name)}</span>
-          <span>${sqft(z.size_sqft)} sq ft</span>
-          <span class="fit-note">Fits — ${sqft(z.size_sqft - est.totalSqft)} sq ft to spare</span>
-        </li>`),
-      ...short.map(z => `<li class="fit-no">
-          <span>${escapeHtml(z.name)}</span>
-          <span>${sqft(z.size_sqft)} sq ft</span>
-          <span class="fit-note">${sqft(est.totalSqft - z.size_sqft)} sq ft short</span>
-        </li>`),
-    ].join('');
-
-    const comboNote = combo ? `
-      <p class="muted-line">No single zone is big enough, but
-      ${combo.zones.map(z => escapeHtml(z.name)).join(' + ')}
-      together come to ${sqft(combo.total)} sq ft, which would cover it.
-      Worth checking they're next to each other.</p>` : '';
-
-    const noneNote = !fits.length && !combo
-      ? '<p class="muted-line">Nothing currently vacant is big enough, even combined.</p>' : '';
-
-    zoneBlock = `<ul class="fit-list">${rows}</ul>${comboNote}${noneNote}`;
+  const measured = state.zones.filter(z => Number(z.size_sqft) > 0 && Number(z.height_ft) > 0);
+  if (!measured.length) {
+    box.innerHTML = '<p class="muted-line">No spaces with dimensions recorded yet. Add one on the Spaces tab.</p>';
+    return;
   }
 
+  const rows = measured.map(z => ({ zone: z, ...spaceCapacity(z, item) }));
+  const vacant = rows.filter(r => !r.zone.active_lease_id);
+
+  // Among spaces that fit, the best one wastes the least rentable floor — not the least
+  // capacity, since floor area is what gets charged for.
+  const fitting = vacant.filter(r => r.capacity >= item.qty).sort((a, b) => a.floorSqft - b.floorSqft);
+  const best = fitting[0] || null;
+  const biggest = [...vacant].sort((a, b) => b.capacity - a.capacity)[0] || null;
+
+  const rate = Number(d.rate_sqft) || 0;
+  let headline;
+  if (best) {
+    const rent = rate > 0
+      ? `<div class="headline-rent">At ${money(rate)} per sq ft per day that space is
+         ${money(Math.round(best.floorSqft * rate))} / day ·
+         ${money(Math.round(best.floorSqft * rate * 30))} per 30 days</div>`
+      : '';
+    headline = `
+      <div class="result-headline">
+        <div class="result-value">${escapeHtml(best.zone.name)}</div>
+        <div class="result-sub">
+          smallest vacant space that takes all ${whole(item.qty)} —
+          holds about ${whole(best.capacity)}
+          ${fitting.length > 1 ? `· ${fitting.length} vacant spaces would do` : ''}
+        </div>
+        ${rent}
+      </div>`;
+  } else if (biggest) {
+    headline = `
+      <div class="result-headline no-fit">
+        <div class="result-value">Nothing vacant takes all ${whole(item.qty)}</div>
+        <div class="result-sub">
+          The roomiest vacant space, ${escapeHtml(biggest.zone.name)}, holds about
+          ${whole(biggest.capacity)}. Split the load across spaces, or stack higher if the goods allow.
+        </div>
+      </div>`;
+  } else {
+    headline = `
+      <div class="result-headline no-fit">
+        <div class="result-value">Everything is let right now</div>
+        <div class="result-sub">No vacant spaces to compare against.</div>
+      </div>`;
+  }
+
+  const ordered = [
+    ...fitting,
+    ...vacant.filter(r => r.capacity < item.qty).sort((a, b) => b.capacity - a.capacity),
+    ...rows.filter(r => r.zone.active_lease_id).sort((a, b) => b.capacity - a.capacity),
+  ];
+
   box.innerHTML = `
-    <div class="result-headline">
-      <div class="result-value">${sqft(est.totalSqft)} sq ft</div>
-      <div class="result-sub">floor area to look for</div>
-    </div>
-
-    ${heightWarning}
-
-    <div class="calc-block">
-      ${working}
-      <div class="calc-row"><span>Aisles &amp; access</span><span>+ ${sqft(est.aisleSqft)} sq ft <em>at ${Math.round(est.util * 100)}% usable</em></span></div>
-      <div class="calc-row calc-total"><span>Total area needed</span><span>${sqft(est.totalSqft)} sq ft</span></div>
-      ${heightNote}
-    </div>
-
-    ${rentBlock}
-
-    <h4>Against your vacant zones</h4>
-    ${zoneBlock}
+    ${headline}
+    <h4>Every space, measured against this load</h4>
+    <ul class="fit-list">${ordered.map(r => capacityRow(r, item)).join('')}</ul>
+    <p class="muted-line footnote">
+      Counts are approximate: usable floor is divided by the footprint of one item, so it
+      assumes goods pack reasonably tightly. ${HEADROOM_FT} ft is left as headroom under
+      the ceiling in every space.
+    </p>
   `;
 }
 
@@ -635,12 +644,6 @@ function applyPreset() {
   form.item_l.value = preset.l;
   form.item_w.value = preset.w;
   form.item_h.value = preset.h;
-}
-
-function syncCalcMode() {
-  const mode = calcInputs().mode;
-  $('#mode-items').classList.toggle('hidden', mode !== 'items');
-  $('#mode-volume').classList.toggle('hidden', mode !== 'volume');
 }
 
 function refreshRateHint() {
@@ -658,14 +661,14 @@ function refreshRateHint() {
 function initCalculator() {
   $('#calc-preset').innerHTML = ITEM_PRESETS
     .map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+  $('#zone-wall-select').innerHTML = WALL_OPTIONS
+    .map(w => `<option value="${w.value}">${escapeHtml(w.label)}</option>`).join('');
   applyPreset();
-  syncCalcMode();
 
   // Only 'input' — a 'change' listener here would re-render on blur, destroying any
   // result button mid-click before the browser can synthesise the click event.
   $('#calc-form').addEventListener('input', e => {
     if (e.target.name === 'preset') applyPreset();
-    if (e.target.name === 'mode') syncCalcMode();
     if (['item_l', 'item_w', 'item_h'].includes(e.target.name)) {
       $('#calc-preset').value = 'custom';
     }
@@ -674,7 +677,6 @@ function initCalculator() {
 
   $('#calc-form').addEventListener('submit', e => e.preventDefault());
 }
-
 // ---- Wiring ----
 document.addEventListener('DOMContentLoaded', () => {
   $all('.tab-btn').forEach(btn => {

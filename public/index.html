@@ -11,10 +11,10 @@
   <h1>Warehouse Rental</h1>
   <nav>
     <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-    <button class="tab-btn" data-tab="zones">Zones</button>
+    <button class="tab-btn" data-tab="zones">Spaces</button>
     <button class="tab-btn" data-tab="vendors">Vendors</button>
     <button class="tab-btn" data-tab="leases">Leases</button>
-    <button class="tab-btn" data-tab="calculator">Space calculator</button>
+    <button class="tab-btn" data-tab="calculator">Space picker</button>
   </nav>
 </header>
 
@@ -23,7 +23,7 @@
   <section id="dashboard" class="tab-panel active">
     <div id="empty-state" class="empty-state hidden">
       <h2>Nothing in here yet</h2>
-      <p>Load a sample warehouse to see how it all works — six zones, four vendors,
+      <p>Load a sample basement to see how it all works — six spaces, four vendors,
          active and closed leases with part-payments already on the books.</p>
       <button class="primary" data-action="seed">Load sample data</button>
     </div>
@@ -32,7 +32,7 @@
       <div class="stat-grid">
         <div class="stat-card">
           <div class="stat-value" id="stat-zones">–</div>
-          <div class="stat-label">Total zones</div>
+          <div class="stat-label">Total spaces</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="stat-occupied">–</div>
@@ -61,7 +61,7 @@
         <table id="active-leases-table">
           <thead>
             <tr>
-              <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th>
+              <th>Space</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th>
               <th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
             </tr>
           </thead>
@@ -78,20 +78,39 @@
   </section>
 
   <section id="zones" class="tab-panel">
-    <h2>Add a zone</h2>
-    <form id="zone-form" class="inline-form">
-      <input type="text" name="name" placeholder="Zone name (e.g. Bay A1)" required>
-      <input type="number" name="size_sqft" placeholder="Size (sq ft)" min="0" step="any">
-      <input type="text" name="notes" placeholder="Notes (optional)">
-      <button type="submit">Add zone</button>
+    <h2>Add a space</h2>
+    <form id="zone-form" class="calc-form">
+      <div class="field-row">
+        <label class="grow">Name
+          <input type="text" name="name" placeholder="e.g. Bay A1" required>
+        </label>
+        <label>Length (ft)
+          <input type="number" name="length_ft" min="0" step="any" required>
+        </label>
+        <label>Width (ft)
+          <input type="number" name="width_ft" min="0" step="any" required>
+        </label>
+        <label>Height (ft)
+          <input type="number" name="height_ft" min="0" step="any" required>
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="grow">Wall support
+          <select name="wall_support" id="zone-wall-select"></select>
+        </label>
+        <label class="grow">Notes
+          <input type="text" name="notes" placeholder="Optional">
+        </label>
+        <button type="submit" class="primary">Add space</button>
+      </div>
     </form>
     <p class="error" id="zone-error"></p>
 
-    <h2>All zones</h2>
+    <h2>All spaces</h2>
     <div class="table-wrap">
       <table id="zones-table">
         <thead>
-          <tr><th>Name</th><th>Size (sq ft)</th><th>Status</th><th>Notes</th><th></th></tr>
+          <tr><th>Name</th><th>Dimensions</th><th>Floor</th><th>Volume</th><th>Walls</th><th>Status</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -135,7 +154,7 @@
       <table id="leases-table">
         <thead>
           <tr>
-            <th>Zone</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th>
+            <th>Space</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th>
             <th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
           </tr>
         </thead>
@@ -145,84 +164,42 @@
   </section>
 
   <section id="calculator" class="tab-panel">
-    <h2>How much space will you need?</h2>
+    <h2>Which space fits?</h2>
     <p class="intro-line">
-      Describe what you're storing and this works out the floor area, checks it against
-      the height of the shed, and tells you which of the vacant zones it would fit in.
+      Say what you're storing and roughly how big one of them is. This works out how many
+      each space can hold, using that space's own height and how much of its floor you
+      actually get to use once you allow for getting at the goods.
     </p>
 
     <form id="calc-form" class="calc-form" autocomplete="off">
-      <div class="field-group">
-        <span class="group-label">Work it out from</span>
-        <div class="radio-row">
-          <label><input type="radio" name="mode" value="items" checked> A count of items</label>
-          <label><input type="radio" name="mode" value="volume"> A total volume</label>
-        </div>
-      </div>
-
-      <div id="mode-items">
-        <div class="field-row">
-          <label class="grow">What are you storing?
-            <select name="preset" id="calc-preset"></select>
-          </label>
-          <label>How many?
-            <input type="number" name="quantity" value="100" min="1" step="1">
-          </label>
-          <label class="wide">Stacked how many high?
-            <input type="number" name="stack" value="3" min="1" step="1">
-          </label>
-        </div>
-
-        <div class="field-row">
-          <label>Length
-            <input type="number" name="item_l" step="any" min="0">
-          </label>
-          <label>Width
-            <input type="number" name="item_w" step="any" min="0">
-          </label>
-          <label>Height (loaded)
-            <input type="number" name="item_h" step="any" min="0">
-          </label>
-          <label>Units
-            <select name="dim_unit">
-              <option value="m">metres</option>
-              <option value="ft">feet</option>
-            </select>
-          </label>
-        </div>
-
-      </div>
-
-      <div id="mode-volume" class="hidden">
-        <div class="field-row">
-          <label>Total volume
-            <input type="number" name="volume" value="50" min="0" step="any">
-          </label>
-          <label>Units
-            <select name="vol_unit">
-              <option value="cbm">cubic metres (CBM)</option>
-              <option value="cuft">cubic feet</option>
-            </select>
-          </label>
-          <label>Stack up to
-            <input type="number" name="vol_stack_ft" value="10" min="0.1" step="any">
-          </label>
-          <span class="unit-suffix">ft high</span>
-        </div>
+      <div class="field-row">
+        <label class="grow">What are you storing?
+          <select name="preset" id="calc-preset"></select>
+        </label>
+        <label>How many?
+          <input type="number" name="quantity" value="300" min="1" step="1">
+        </label>
       </div>
 
       <div class="field-row">
-        <label class="grow">Aisles &amp; access
-          <select name="utilisation">
-            <option value="0.8">Tight — 80% of floor usable</option>
-            <option value="0.7" selected>Normal — 70% of floor usable</option>
-            <option value="0.6">Generous — 60% of floor usable</option>
+        <label>Length
+          <input type="number" name="item_l" step="any" min="0">
+        </label>
+        <label>Width
+          <input type="number" name="item_w" step="any" min="0">
+        </label>
+        <label>Height
+          <input type="number" name="item_h" step="any" min="0">
+        </label>
+        <label>Units
+          <select name="dim_unit">
+            <option value="m">metres</option>
+            <option value="ft">feet</option>
           </select>
         </label>
-        <label>Clear height of shed
-          <input type="number" name="clear_height" value="20" min="1" step="any">
+        <label class="wide">Don't stack above
+          <input type="number" name="max_stack" min="1" step="1" placeholder="no limit">
         </label>
-        <span class="unit-suffix">ft</span>
       </div>
 
       <div class="field-row">

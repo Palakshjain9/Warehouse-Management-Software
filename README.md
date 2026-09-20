@@ -5,11 +5,13 @@ version built to test the idea with real numbers before adding more features.
 
 ## What it does
 
-- **Zones** — define named spaces in your warehouse with a size in sq ft. Edit or
-  delete them; a zone with leases on record can't be deleted by accident.
+- **Spaces** — mark out your basement into named spaces, each with a length, width
+  and height (so floor area and volume are worked out for you) and a note of how much
+  wall support it has: open on all sides, against one wall, a corner, or an alcove.
+  Edit or delete them; a space with leases on record can't be deleted by accident.
 - **Vendors** — who you're renting to, with a count of their leases.
-- **Leases** — assign a vendor to a zone at a daily rate starting on a date.
-  A zone can only have one active lease at a time; end a lease to free the zone up,
+- **Leases** — assign a vendor to a space at a daily rate starting on a date.
+  A space can only have one active lease at a time; end a lease to free it up,
   or reopen one you ended by mistake.
 - **Payments** — log payments against a lease, remove ones entered wrongly, and see
   the outstanding balance (an overpayment shows as a credit).
@@ -19,27 +21,36 @@ version built to test the idea with real numbers before adding more features.
 - **Dashboard** — occupancy, total daily rent from active leases, and total
   outstanding dues across all leases.
 
-### Space calculator
+### Space picker
 
-A separate tab for sizing an enquiry before it becomes a lease. Describe the goods
-either as a count of items (pick a preset or type the dimensions, say how high they
-stack) or as a total volume in CBM, and it works out:
+A separate tab that answers "will my goods fit, and where?". Describe the load the way
+an owner actually knows it — how many items, and roughly how big one of them is (pick a
+preset or type the size) — and for every space it works out **how many of those items
+that space holds**, then names the one to offer.
 
-- the floor footprint, from `items ÷ stack height`, rounded up to whole positions
-- an aisle and access allowance (60/70/80% of floor usable)
-- whether the stack clears the height of the shed, and the tallest stack that would
+For each space it takes:
+
+- the usable floor, which is where wall support earns its keep: a corner only needs
+  access from two sides, so more of its floor is stackable than an island in the middle
+  of the room (60% open / 70% one wall / 75% corner / 80% alcove)
+- the layers that fit under that space's own ceiling, less 1 ft of headroom — so you're
+  never asked how high to stack, unless you want to cap it for fragile goods
 - the indicative rent, at a rate defaulted to the average ₹/sq ft/day across your own
   active leases rather than an invented market figure
-- which of your currently vacant zones it fits in, or which combination would cover it
 
-Every line shows its working, so a vendor can check the number rather than trust it.
-The item presets are typical starting points, not gospel — all dimensions stay
-editable, and typing over one switches the preset to "Something else".
+Recommended space is the **smallest one that fits**, since floor area is what gets
+charged for. Every row shows its working, so a vendor can check the number rather than
+trust it. Counts are approximate: usable floor is divided by one item's footprint, so
+it assumes goods pack reasonably tightly.
+
+The item presets and the usable-floor percentages are starting points from general
+warehousing practice, not measurements of your basement — adjust `WALL_OPTIONS` and
+`HEADROOM_FT` in `public/app.js` once you know how your own space really behaves.
 
 ### Sample data
 
 The dashboard has a **Load sample data** button (and a **Clear everything** button
-next to it). It fills the app with six zones, four vendors, three running leases,
+next to it). It fills the app with six measured spaces, four vendors, three running leases,
 two closed ones, and a mix of part-payments and a fully settled account — enough to
 show someone how the whole thing works without typing anything in. Dates are
 generated relative to today, so the day counts always look live.
@@ -95,5 +106,5 @@ Amounts render as `₹` with Indian digit grouping. Both are set at the top of
 ## Not included yet
 
 Intentionally left out until the idea is validated: a visual floor plan of the
-zones, invoices/PDFs, multi-warehouse support, login/accounts, payment gateways,
+spaces, invoices/PDFs, multi-warehouse support, login/accounts, payment gateways,
 and reminders/notifications. Ask and we can add any of these next.
