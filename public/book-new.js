@@ -90,7 +90,7 @@ function goToStage(id) {
   });
   // A hidden pane measures zero, so the plan can only be sized once it's on screen.
   sizeFrames();
-  fitSheet();
+  fitBar();
   window.scrollTo({ top: 0 });
 }
 
@@ -198,23 +198,22 @@ function drawPlan(holder, boxes) {
   }
 }
 
-// The sheet at the bottom of a phone screen floats over the page, so the page
-// needs exactly that much padding underneath or the last row can't be scrolled
-// clear of it.
-function fitSheet() {
+// The action bar on a phone floats over the page, so the page needs that much
+// padding underneath or the last row can't be scrolled clear of it.
+function fitBar() {
   const split = document.querySelector('.stage.active .split');
   if (!split) return;
   if (WIDE.matches) {
     split.style.paddingBottom = '';
-    document.documentElement.style.setProperty('--sheet-h', '0px');
+    document.documentElement.style.setProperty('--bar-h', '0px');
     return;
   }
-  const rail = split.querySelector('.pane-right');
-  if (!rail) return;
-  const height = Math.ceil(rail.getBoundingClientRect().height);
-  split.style.paddingBottom = `${height + 16}px`;
-  // Anything scrolled into view has to clear the sheet as well.
-  document.documentElement.style.setProperty('--sheet-h', `${height}px`);
+  const bar = split.querySelector('.rail-foot');
+  if (!bar) return;
+  const height = Math.ceil(bar.getBoundingClientRect().height);
+  split.style.paddingBottom = `${height + 14}px`;
+  // Anything scrolled into view has to clear the bar as well.
+  document.documentElement.style.setProperty('--bar-h', `${height}px`);
 }
 
 // On a wide screen the drawing has to fit the space left over beside the rail, so
@@ -318,16 +317,22 @@ function picksInner(heading) {
 function renderPicks() {
   const box = $('#picks-card');
   const btn = $('#to-goods');
+  const foot = $('#foot-total');
   btn.disabled = state.chosen.length === 0;
 
   if (!state.chosen.length) {
     box.innerHTML = '';
+    foot.innerHTML = '';
     btn.textContent = 'Continue';
     return;
   }
 
+  const days = state.range?.days ?? 1;
   btn.textContent = `Continue with ${plural(state.chosen.length, 'space')}`;
   box.innerHTML = `<div class="card">${picksInner('Your picks')}</div>`;
+  // The picks card is well down a phone screen, so the bar carries the total too.
+  foot.innerHTML = `<strong>${totalPrice() ? money(totalPrice()) : '—'}</strong>
+    <span>${escapeHtml(chosenNames())} · ${plural(days, 'day')}</span>`;
 }
 
 function toggleChoice(space) {
@@ -707,12 +712,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  window.addEventListener('resize', () => { sizeFrames(); fitSheet(); });
+  window.addEventListener('resize', () => { sizeFrames(); fitBar(); });
 
-  // The sheet changes height whenever a card goes in or out of it.
+  // The bar grows a line when the total appears in it.
   if (window.ResizeObserver) {
-    const watcher = new ResizeObserver(fitSheet);
-    document.querySelectorAll('.pane-right').forEach(rail => watcher.observe(rail));
+    const watcher = new ResizeObserver(fitBar);
+    document.querySelectorAll('.rail-foot').forEach(bar => watcher.observe(bar));
   }
 
   try {

@@ -213,7 +213,7 @@ label.stack {
 }
 
 .space-row + .space-row { margin-top: 7px; }
-.space-row { scroll-margin-bottom: calc(var(--sheet-h, 0px) + 10px); }
+.space-row { scroll-margin-bottom: calc(var(--bar-h, 0px) + 10px); }
 .space-row.added { border-left-color: var(--accent); background: #f5f8ff; }
 .space-row.gone { border-left-color: var(--warn); opacity: 0.6; }
 .space-row .who { flex: 1; min-width: 0; }
@@ -233,20 +233,46 @@ label.stack {
 
 .centred .empty-state { max-width: 560px; }
 
-.sheet-grip { display: none; }
+.foot-total { display: none; }
 
 @media (max-width: 860px) {
-  /* Two columns can't survive a phone: the plan goes on top, the rail becomes a
-     sheet pinned to the bottom of the screen. */
+  /* Two columns can't survive a phone, and a bottom sheet is worse: it swallows
+     the screen, leaving a sliver of the plan you're supposed to be picking from.
+     So the panes dissolve and their cards run down one column in reading order,
+     with nothing fixed but a slim bar carrying the total and the button. */
   .split-body { height: auto; overflow: visible; display: block; }
   .stage.active { display: block; }
 
-  /* The bottom padding is replaced in script with the sheet's real height. */
   .split {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     height: auto;
-    padding: 12px 14px 240px;
+    padding: 10px 12px 84px;
   }
+
+  .pane-left, .pane-right, .rail-scroll { display: contents; }
+
+  /* Dates before the plan, the tapped space's facts right under it, the list
+     under that — the order a thumb works down the screen. */
+  #stage-pick .card.dates { order: 1; }
+  #stage-pick .legend-inline { order: 2; }
+  #stage-pick .plan-holder { order: 3; }
+  #stage-pick #space-detail { order: 4; }
+  #stage-pick .space-list { order: 5; }
+  #stage-pick #picks-card { order: 6; }
+  #stage-pick .rail-foot { order: 7; }
+
+  /* The countdown first, then what you're paying for, then the form that ends
+     it. The plan is confirmation, so it goes last rather than between them. */
+  #stage-checkout #hold-timer { order: 1; }
+  #stage-checkout h2 { order: 2; }
+  #stage-checkout #order-summary { order: 3; }
+  #stage-checkout .rail-scroll .card { order: 4; }
+  #stage-checkout #pay-error { order: 5; }
+  #stage-checkout .info-notice { order: 6; }
+  #stage-checkout #checkout-plan { order: 7; }
+  #stage-checkout .rail-foot { order: 8; }
 
   .plan-holder { height: auto; padding: 8px; }
   /* Sized by width on a phone — fixing the height instead forces the frame
@@ -255,30 +281,56 @@ label.stack {
 
   .space-list { display: block; }
 
-  .pane-right {
+  .rail-foot {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 20;
+    align-items: center;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom, 0px));
     background: var(--surface);
     border-top: 1px solid var(--border);
-    border-radius: 14px 14px 0 0;
-    padding: 10px 14px 14px;
-    box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.13);
-    max-height: 62vh;
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.1);
   }
 
-  .sheet-grip {
+  .rail-foot button { flex: 0 0 auto; }
+  .rail-foot .primary { flex: 1 1 auto; }
+
+  .foot-total:not(:empty) {
     display: block;
-    flex: 0 0 auto;
-    width: 36px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border);
-    margin: 0 auto 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .foot-total strong { display: block; font-size: 15px; }
+  .foot-total span {
+    display: block;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .centred { height: auto; }
-  .nb-head .steps { margin-left: 0; width: 100%; }
+
+  /* Three pills wrap onto two lines at this width and eat the screen. Nor does
+     the header earn a permanent 100px on a phone — it scrolls away instead. */
+  .nb-head { padding: 9px 12px; gap: 8px; position: static; }
+  .nb-head h1 { font-size: 16px; }
+
+  /* Every pixel here is a pixel of plan you can't see. */
+  .card { padding: 10px 12px; }
+  .card.dates .muted-line { margin-top: 6px; }
+  .mini-row input, .mini-row select, label.stack input { padding: 6px 8px; }
+  .nb-head .steps { margin-left: 0; width: 100%; gap: 6px; flex-wrap: nowrap; }
+  .steps li {
+    font-size: 11px;
+    padding: 4px 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }

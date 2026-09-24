@@ -34,9 +34,8 @@
     </div>
 
     <aside class="pane-right">
-      <div class="sheet-grip"></div>
       <div class="rail-scroll">
-        <div class="card accent">
+        <div class="card accent dates">
           <div class="mini-row">
             <label>From<input type="date" id="f-start" required></label>
             <label>Days<input type="number" id="f-days" value="7" min="1" max="365"></label>
@@ -48,6 +47,8 @@
         <div id="picks-card"></div>
       </div>
       <div class="rail-foot">
+        <!-- Only shows on a phone, where the picks card is further down the page. -->
+        <div class="foot-total" id="foot-total"></div>
         <button class="primary" id="to-goods" data-action="to-goods" disabled>Continue</button>
       </div>
     </aside>
@@ -68,7 +69,6 @@
     </div>
 
     <aside class="pane-right">
-      <div class="sheet-grip"></div>
       <div class="rail-scroll">
         <div class="card accent" id="goods-picks"></div>
         <div class="card">
@@ -114,7 +114,6 @@
     </div>
 
     <aside class="pane-right">
-      <div class="sheet-grip"></div>
       <div class="rail-scroll">
         <div id="hold-timer" class="hold-timer"></div>
         <div class="card">

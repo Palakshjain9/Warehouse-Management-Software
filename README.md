@@ -69,11 +69,16 @@ happen without scrolling. The dates sit in the rail rather than on a screen of t
 changing them re-colours the plan in place. Three stages instead of four — pick, goods,
 checkout — and each one fills a 1280 × 800 screen exactly, with no scroll.
 
-On a phone two columns can't survive, so the plan goes across the top and the rail becomes
-a **sheet at the bottom of the screen** with the total and the button always in view. Under
-the plan is a plain **list of the same spaces** with an Add button each, because a thumb
-misses small areas on a hand-drawn plan. The list and the plan stay in step — picking in
-one shows in the other.
+On a phone the two panes dissolve and their cards run down **one column in reading order** —
+dates, plan, the tapped space's facts, then a plain **list of the same spaces** with an Add
+button each, because a thumb misses small areas on a hand-drawn plan. The list and the plan
+stay in step: picking in one shows in the other. Nothing is pinned except a **slim bar** at
+the foot of the screen carrying the running total and the button, about 55px of it.
+
+A bottom sheet was tried first and was worse than useless: at 62% of the screen it left a
+sliver of the plan you are supposed to be picking from, and `vh` ignores the browser's own
+address and navigation bars, so on a real phone it was worse again. The header scrolls away
+on a phone for the same reason — every pixel of furniture is a pixel of plan.
 
 Checkout carries the plan a second time, marked with nothing but the spaces on hold, so
 there's no doubt about which corner of the basement is being paid for.
