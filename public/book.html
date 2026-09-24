@@ -48,22 +48,24 @@
     <div class="chosen-bar" id="dates-bar"></div>
 
     <p class="intro-line">
-      Tap a space on the plan to pick it. Press and hold to see its floor area and height
-      first. Red spaces are already booked for these dates.
+      Tap a space on the plan to pick it — tap more than one if you need the room.
+      Press and hold a space to see its floor area and usable height first.
+      Red spaces are already booked for these dates.
     </p>
 
     <div class="plan-legend">
       <span><i class="swatch is-free"></i> Available</span>
-      <span><i class="swatch is-chosen"></i> Your pick</span>
+      <span><i class="swatch is-chosen"></i> Your picks</span>
       <span><i class="swatch is-taken"></i> Booked</span>
     </div>
 
     <div id="book-stage"></div>
     <div id="book-detail"></div>
+    <div id="selection-bar"></div>
 
     <div class="book-actions">
       <button data-action="back-to-1">Change dates</button>
-      <span></span>
+      <button class="primary" id="continue-btn" data-action="to-goods" disabled>Continue</button>
     </div>
   </section>
 
@@ -77,11 +79,12 @@
     </p>
 
     <form id="goods-form" class="calc-form" autocomplete="off">
+      <span class="group-label">What kind of thing is it?</span>
+      <div class="item-grid" id="goods-grid"></div>
+      <input type="hidden" name="preset" id="goods-preset" value="carton-lg">
+
       <div class="field-row">
-        <label class="grow">Type of goods
-          <select name="preset" id="goods-preset"></select>
-        </label>
-        <label>How many?
+        <label class="grow">How many?
           <input type="number" name="quantity" value="300" min="1" step="1" required>
         </label>
       </div>
@@ -127,11 +130,28 @@
         <label class="grow">Your name
           <input type="text" name="customer_name" required>
         </label>
-        <label class="grow">Phone or email
-          <input type="text" name="contact">
+        <label class="grow">Email
+          <input type="email" name="email" placeholder="you@example.com">
+        </label>
+      </div>
+      <div class="field-row">
+        <label class="grow">Mobile number
+          <input type="tel" name="contact" placeholder="98200 00000">
+        </label>
+        <label class="grow checkbox-field">
+          <span class="checkbox-line">
+            <input type="checkbox" name="whatsapp" checked>
+            This number is on WhatsApp
+          </span>
         </label>
       </div>
     </form>
+
+    <div class="notice info-notice labour-notice">
+      <strong>Loading and unloading is between you and the labour.</strong>
+      Whatever you agree to pay them for moving your goods in and out is settled directly
+      with them. We charge only for the space, and have no part in those rates.
+    </div>
 
     <p class="error" id="confirm-error"></p>
 

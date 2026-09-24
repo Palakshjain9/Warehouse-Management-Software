@@ -30,8 +30,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     space_id INTEGER NOT NULL REFERENCES spaces(id),
+    group_id TEXT NOT NULL,
     customer_name TEXT,
     contact TEXT,
+    email TEXT,
+    whatsapp INTEGER NOT NULL DEFAULT 0,
     start_date TEXT NOT NULL,
     days INTEGER NOT NULL,
     end_date TEXT NOT NULL,

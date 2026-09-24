@@ -28,26 +28,39 @@ prices or booking history.
 
 1. **Dates first.** Which spaces are free depends on when you want them, so the dates come
    before the plan. Change the dates and the colours change with them.
-2. **Pick a space.** Tap an area on the plan. Press and hold to see its floor area, height
-   and price for the chosen dates first.
-   - 🟩 **green** — available  🟦 **blue** — your pick  🟥 **red** — booked
-3. **What you're storing.** How many, and what kind of thing. Based on a typical size for
-   that kind of item, it gives a *soft caution* if the quantity looks like more than the
+2. **Pick spaces.** Tap an area on the plan — tap several if one isn't enough, and they
+   book together as a single booking. Press and hold to see floor area, usable height and
+   price first.
+   - 🟩 **green** — available  🟦 **blue** — your picks  🟥 **red** — booked
+3. **What you're storing.** Pick the kind of thing from a picture grid (cartons, 25 kg and
+   50 kg bags, bales, pallets, drums) and say how many. Where several spaces are picked,
+   their capacity is added up. Based on a typical size for that kind of item, it gives a
+   *soft caution* if the quantity looks like more than the
    space holds — it never blocks, since the customer knows their goods better than the
    estimate does. Ticking "I know the exact size" swaps in their figures and re-checks.
-4. **Checkout, against the clock.** Reaching checkout puts the space **on hold for two
-   minutes**, with a countdown on screen. Finish in time and it's confirmed; run out and
-   the hold is refused and the space goes back on the market.
+4. **Checkout, against the clock.** Reaching checkout puts every picked space **on hold for
+   five minutes**, with a countdown on screen. Name plus a mobile number or email; the
+   mobile has a *this number is on WhatsApp* tick. Finish in time and it's confirmed; run
+   out and the hold is refused and the spaces go back on the market.
+
+Checkout states plainly that **loading and unloading is settled directly with the labour** —
+the charge here is for the space only.
 
 The hold is real: while it runs, the space reads as booked to everyone else. The clock is
 enforced on the server, so a stale page can't buy an expired hold.
 
-Hold length comes from the `HOLD_SECONDS` env var (default 120) — tests set it to a few
+Hold length comes from the `HOLD_SECONDS` env var (default 300) — tests set it to a few
 seconds rather than waiting two minutes.
 
 **Payment is not connected.** The last step is a clearly marked placeholder. Wiring a real
 provider needs an account, API keys and a webhook to confirm payment before a space is
 held for good.
+
+### Item pictures
+
+The grid draws from `ITEM_PRESETS` in `public/fit.js`, and each entry points at a file in
+`public/items/`. Those are line illustrations at the moment — drop a photograph in under
+the same filename and the picker shows the photograph instead, no code change.
 
 ## The admin
 

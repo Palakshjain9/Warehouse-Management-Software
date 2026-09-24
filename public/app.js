@@ -109,7 +109,7 @@ async function loadSpaces() {
         <td data-label="Price/day">${s.price_per_day ? money(s.price_per_day) : '—'}</td>
         <td data-label="Today">${s.booked_today
           ? '<span class="badge occupied">Booked</span>'
-          : '<span class="badge vacant">Free</span>'}</td>
+          : '<span class="badge vacant">Available</span>'}</td>
         <td data-label="" class="row-actions">
           <button data-action="space-edit" data-id="${s.id}">Edit</button>
           <button data-action="space-delete" data-id="${s.id}" class="danger-text">Delete</button>
@@ -328,7 +328,7 @@ function itemFromInputs(d) {
 function capacityRow(r, item) {
   const s = r.space;
   const fits = r.capacity >= item.qty;
-  const status = s.booked_today ? 'booked today' : 'free today';
+  const status = s.booked_today ? 'booked today' : 'available today';
 
   const verdict = r.capacity === 0
     ? 'Too low for even one layer'
@@ -377,19 +377,19 @@ function renderCalcResults() {
   const headline = best
     ? `<div class="result-headline">
         <div class="result-value">${escapeHtml(best.space.name)}</div>
-        <div class="result-sub">smallest space free today that takes all ${whole(item.qty)} —
+        <div class="result-sub">smallest space available today that takes all ${whole(item.qty)} —
           holds about ${whole(best.capacity)}
           ${fitting.length > 1 ? `· ${fitting.length} would do` : ''}</div>
       </div>`
     : biggest
       ? `<div class="result-headline no-fit">
-          <div class="result-value">Nothing free today takes all ${whole(item.qty)}</div>
-          <div class="result-sub">The roomiest free space, ${escapeHtml(biggest.space.name)},
+          <div class="result-value">Nothing available today takes all ${whole(item.qty)}</div>
+          <div class="result-sub">The roomiest available space, ${escapeHtml(biggest.space.name)},
             holds about ${whole(biggest.capacity)}.</div>
         </div>`
       : `<div class="result-headline no-fit">
           <div class="result-value">Everything is booked today</div>
-          <div class="result-sub">No free spaces to compare against.</div>
+          <div class="result-sub">No available spaces to compare against.</div>
         </div>`;
 
   const ordered = [
@@ -421,7 +421,7 @@ function applyPreset() {
 
 function initCalculator() {
   $('#calc-preset').innerHTML = ITEM_PRESETS
-    .map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+    .map(p => `<option value="${p.id}">${escapeHtml(presetLabel(p))}</option>`).join('');
   $('#space-wall-select').innerHTML = WALL_OPTIONS
     .map(w => `<option value="${w.value}">${escapeHtml(w.label)}</option>`).join('');
   applyPreset();
@@ -498,7 +498,7 @@ function renderPlan() {
 
   $('#plan-tools').innerHTML = `
     <div class="plan-legend">
-      <span><i class="swatch is-free"></i> Free today</span>
+      <span><i class="swatch is-free"></i> Available today</span>
       <span><i class="swatch is-taken"></i> Booked today</span>
     </div>
     <div class="plan-tools-buttons">

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import db from './db.js';
 import { daysAgoStr, endDateFor, todayStr, addDays } from './calc.js';
 
@@ -95,16 +96,16 @@ export function seedDemoData() {
   const prices = new Map(SPACES.map(s => [s[0], s[5]]));
   const insertBooking = db.prepare(`
     INSERT INTO bookings
-      (space_id, customer_name, contact, start_date, days, end_date, quantity, item_label,
-       amount, status, paid_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', datetime('now'))
+      (space_id, group_id, customer_name, contact, email, whatsapp,
+       start_date, days, end_date, quantity, item_label, amount, status, paid_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', datetime('now'))
   `);
 
   for (const [spaceName, customer, contact, offset, days, quantity, item] of BOOKINGS) {
     const start = offset < 0 ? daysAgoStr(-offset) : addDays(todayStr(), offset);
     insertBooking.run(
-      spaceIds.get(spaceName), customer, contact, start, days, endDateFor(start, days),
-      quantity, item, prices.get(spaceName) * days
+      spaceIds.get(spaceName), randomUUID(), customer, contact, null, 1,
+      start, days, endDateFor(start, days), quantity, item, prices.get(spaceName) * days
     );
   }
 }

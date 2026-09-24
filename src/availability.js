@@ -1,9 +1,9 @@
 import db from './db.js';
 import { endDateFor } from './calc.js';
 
-// Two minutes by default; tests shorten it so the expiry path doesn't take two
+// Five minutes by default; tests shorten it so the expiry path doesn't take five
 // minutes to reach.
-export const HOLD_SECONDS = Math.max(1, Number(process.env.HOLD_SECONDS) || 120);
+export const HOLD_SECONDS = Math.max(1, Number(process.env.HOLD_SECONDS) || 300);
 
 // A held booking stops blocking the space the moment its hold lapses, so every
 // availability question carries this condition rather than relying on a sweeper.

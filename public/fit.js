@@ -20,15 +20,23 @@ function wallInfo(n) {
 }
 
 // Starting points only — every dimension stays editable, because real stock varies.
+// `image` points at public/items/: drop a photograph in under the same name and the
+// picker shows the photograph instead of the illustration.
 const ITEM_PRESETS = [
-  { id: 'carton-lg', label: 'Carton, large (600 × 400 × 400 mm)', l: 0.6, w: 0.4, h: 0.4 },
-  { id: 'carton-sm', label: 'Carton, small (400 × 300 × 300 mm)', l: 0.4, w: 0.3, h: 0.3 },
-  { id: 'bag', label: 'Sack or bag, 50 kg (900 × 550 × 250 mm)', l: 0.9, w: 0.55, h: 0.25 },
-  { id: 'bale', label: 'Pressed bale (1100 × 550 × 700 mm)', l: 1.1, w: 0.55, h: 0.7 },
-  { id: 'pallet-std', label: 'Pallet, loaded (1200 × 1000 × 1200 mm)', l: 1.2, w: 1.0, h: 1.2 },
-  { id: 'drum', label: 'Drum, 200 litre (ø 580 × 890 mm)', l: 0.58, w: 0.58, h: 0.89 },
-  { id: 'custom', label: 'Something else — I’ll type the size', l: null, w: null, h: null },
+  { id: 'carton-lg', name: 'Large carton', size: '600 × 400 × 400 mm', image: 'items/carton-lg.svg', l: 0.6, w: 0.4, h: 0.4 },
+  { id: 'carton-sm', name: 'Small carton', size: '400 × 300 × 300 mm', image: 'items/carton-sm.svg', l: 0.4, w: 0.3, h: 0.3 },
+  { id: 'bag-50', name: '50 kg bag', size: '900 × 550 × 250 mm', image: 'items/bag-50.svg', l: 0.9, w: 0.55, h: 0.25 },
+  { id: 'bag-25', name: '25 kg bag', size: '700 × 450 × 200 mm', image: 'items/bag-25.svg', l: 0.7, w: 0.45, h: 0.2 },
+  { id: 'bale', name: 'Pressed bale', size: '1100 × 550 × 700 mm', image: 'items/bale.svg', l: 1.1, w: 0.55, h: 0.7 },
+  { id: 'pallet-std', name: 'Loaded pallet', size: '1200 × 1000 × 1200 mm', image: 'items/pallet.svg', l: 1.2, w: 1.0, h: 1.2 },
+  { id: 'drum', name: '200 litre drum', size: 'ø 580 × 890 mm', image: 'items/drum.svg', l: 0.58, w: 0.58, h: 0.89 },
+  { id: 'custom', name: 'Something else', size: 'I’ll type the size', image: 'items/custom.svg', l: null, w: null, h: null },
 ];
+
+// The admin dropdown still wants a single line of text per item.
+function presetLabel(p) {
+  return p.id === 'custom' ? `${p.name} — ${p.size}` : `${p.name} (${p.size})`;
+}
 
 function presetById(id) {
   return ITEM_PRESETS.find(p => p.id === id) || null;
@@ -46,20 +54,24 @@ function makeItem({ l, w, h, unit = 'm', quantity, maxStack = null }) {
   return { l: lf, w: wf, h: hf, qty, footprint: lf * wf, maxStack: cap > 0 ? cap : null };
 }
 
+function usableHeight(space) {
+  return Math.max(Number(space.height_ft) - HEADROOM_FT, 0);
+}
+
 function spaceCapacity(zone, item) {
   const wall = wallInfo(zone.wall_support);
   const floorSqft = Number(zone.size_sqft) || 0;
   const usableFloor = floorSqft * wall.usable;
-  const usableHeight = Math.max(Number(zone.height_ft) - HEADROOM_FT, 0);
+  const usableHeightFt = usableHeight(zone);
 
-  let layers = Math.floor(usableHeight / item.h);
+  let layers = Math.floor(usableHeightFt / item.h);
   const limitedByRule = item.maxStack !== null && item.maxStack < layers;
   if (limitedByRule) layers = item.maxStack;
   layers = Math.max(layers, 0);
 
   const perLayer = Math.floor(usableFloor / item.footprint);
   return {
-    wall, floorSqft, usableFloor, usableHeight, layers, perLayer, limitedByRule,
+    wall, floorSqft, usableFloor, usableHeight: usableHeightFt, layers, perLayer, limitedByRule,
     capacity: perLayer * layers,
   };
 }

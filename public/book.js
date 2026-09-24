@@ -8,10 +8,13 @@ const state = {
   spaces: [],
   planImage: null,
   range: null,
-  chosen: null,
+  chosen: [],
   fit: null,
   hold: null,
 };
+
+const isChosen = (space) => state.chosen.some(c => c.id === space.id);
+const chosenNames = () => state.chosen.map(c => c.name).join(', ');
 
 let countdownTimer = null;
 
@@ -97,15 +100,15 @@ async function loadSpacesForDates() {
   state.spaces = data.spaces;
   state.range = { start: data.start, days: data.days, end: data.end };
 
-  if (state.chosen) {
-    const still = state.spaces.find(s => s.id === state.chosen.id);
-    state.chosen = still && still.available ? still : null;
-  }
+  // Dropping a pick that has gone unavailable for the new dates.
+  state.chosen = state.chosen
+    .map(c => state.spaces.find(s => s.id === c.id))
+    .filter(s => s && s.available);
 
   $('#dates-bar').innerHTML = `
     <strong>${fmtDate(data.start)} to ${fmtDate(data.end)}</strong>
     <span class="muted-inline">${data.days} day${data.days === 1 ? '' : 's'} ·
-      ${data.spaces.filter(s => s.available).length} of ${data.spaces.length} free</span>`;
+      ${data.spaces.filter(s => s.available).length} of ${data.spaces.length} available</span>`;
   renderStage();
   renderDetail(null);
 }
@@ -125,10 +128,11 @@ function renderStage() {
   // No name label — the owner's drawing already carries the names, and an overlay
   // label would sit on top of them.
   const boxes = state.spaces.map(s => {
-    const cls = state.chosen?.id === s.id ? 'is-chosen' : s.available ? 'is-free' : 'is-taken';
+    const picked = isChosen(s);
+    const cls = picked ? 'is-chosen' : s.available ? 'is-free' : 'is-taken';
     return `<div class="hot-box pickable ${cls}" data-space-id="${s.id}"
         style="left:${s.hot_x * 100}%;top:${s.hot_y * 100}%;width:${s.hot_w * 100}%;height:${s.hot_h * 100}%">
-        ${state.chosen?.id === s.id ? `<span>${escapeHtml(s.name)}</span>` : ''}
+        ${picked ? `<span>${escapeHtml(s.name)}</span>` : ''}
       </div>`;
   }).join('');
 
@@ -151,14 +155,16 @@ function renderDetail(space) {
       </div>
       <div class="space-facts">
         <div><span>Floor area</span><strong>${whole(space.size_sqft)} sq ft</strong></div>
-        <div><span>Height</span><strong>${space.height_ft} ft</strong></div>
+        <div><span>Usable height</span><strong>${usableHeight(space)} ft</strong></div>
         <div><span>Footprint</span><strong>${space.length_ft} × ${space.width_ft} ft</strong></div>
         ${space.price_per_day ? `<div><span>Price</span><strong>${money(space.price_per_day)} / day</strong></div>` : ''}
       </div>
       ${space.available
-        ? `<button class="primary" data-action="choose" data-id="${space.id}">
-             Pick ${escapeHtml(space.name)}${space.price_per_day ? ` — ${money(space.price_per_day * nights)} for ${nights} day${nights === 1 ? '' : 's'}` : ''}
-           </button>`
+        ? isChosen(space)
+          ? `<button data-action="unchoose" data-id="${space.id}">Remove ${escapeHtml(space.name)} from your picks</button>`
+          : `<button class="primary" data-action="choose" data-id="${space.id}">
+               Add ${escapeHtml(space.name)}${space.price_per_day ? ` — ${money(space.price_per_day * nights)} for ${nights} day${nights === 1 ? '' : 's'}` : ''}
+             </button>`
         : '<p class="muted-line">Someone has this one for the dates you picked. Try another space, or change your dates.</p>'}
     </div>`;
 }
@@ -194,15 +200,62 @@ function initStage() {
 
     const space = state.spaces.find(s => s.id === Number(box.dataset.spaceId));
     if (!space) return;
-    if (space.available) state.chosen = space;
+    if (space.available) toggleChoice(space);
     renderStage();
     renderDetail(space);
   });
 }
 
+function toggleChoice(space) {
+  state.chosen = isChosen(space)
+    ? state.chosen.filter(c => c.id !== space.id)
+    : [...state.chosen, space];
+  renderSelection();
+}
+
+function totalPrice() {
+  return state.chosen.reduce((sum, s) => sum + (Number(s.price_per_day) || 0), 0)
+    * (state.range?.days || 1);
+}
+
+function renderSelection() {
+  const bar = $('#selection-bar');
+  const btn = $('#continue-btn');
+  btn.disabled = state.chosen.length === 0;
+
+  if (!state.chosen.length) {
+    bar.innerHTML = '';
+    btn.textContent = 'Continue';
+    return;
+  }
+
+  const area = state.chosen.reduce((sum, s) => sum + Number(s.size_sqft || 0), 0);
+  btn.textContent = `Continue with ${state.chosen.length} space${state.chosen.length === 1 ? '' : 's'}`;
+  bar.innerHTML = `
+    <div class="selection-summary">
+      <div>
+        <strong>${escapeHtml(chosenNames())}</strong>
+        <span class="muted-inline">${whole(area)} sq ft together \u00b7
+          ${state.range.days} day${state.range.days === 1 ? '' : 's'}</span>
+      </div>
+      <div class="selection-total">${totalPrice() ? money(totalPrice()) : ''}</div>
+    </div>`;
+}
+
 // ---- Step 3: goods ----
 function goodsInputs() {
   return Object.fromEntries(new FormData($('#goods-form')).entries());
+}
+
+function renderItemGrid() {
+  const chosenId = $('#goods-preset').value;
+  $('#goods-grid').innerHTML = ITEM_PRESETS.map(p => `
+    <button type="button" class="item-card${p.id === chosenId ? ' selected' : ''}"
+            data-action="pick-item" data-id="${p.id}">
+      <img src="${p.image}" alt="" loading="lazy">
+      <span class="item-name">${escapeHtml(p.name)}</span>
+      <span class="item-size">${escapeHtml(p.size)}</span>
+    </button>`).join('');
 }
 
 function currentItem() {
@@ -212,7 +265,7 @@ function currentItem() {
   if ($('#exact-toggle').checked) {
     return {
       item: makeItem({ l: d.item_l, w: d.item_w, h: d.item_h, unit: d.dim_unit, quantity: d.quantity }),
-      label: preset && preset.id !== 'custom' ? preset.label.split(' (')[0] : 'items',
+      label: preset && preset.id !== 'custom' ? preset.name : 'items',
       exact: true,
     };
   }
@@ -220,7 +273,7 @@ function currentItem() {
   if (!preset || preset.id === 'custom') return { item: null, label: 'items', exact: false };
   return {
     item: makeItem({ l: preset.l, w: preset.w, h: preset.h, unit: 'm', quantity: d.quantity }),
-    label: preset.label.split(' (')[0],
+    label: preset.name,
     exact: false,
   };
 }
@@ -230,45 +283,55 @@ function renderFit() {
   const { item, exact } = currentItem();
   state.fit = null;
 
-  if (!state.chosen) { box.innerHTML = ''; return; }
+  if (!state.chosen.length) { box.innerHTML = ''; return; }
   if (!item) {
     box.innerHTML = `<div class="notice info-notice">
-      Tell us roughly how big one item is and we'll check it against ${escapeHtml(state.chosen.name)}.
+      Tell us roughly how big one item is and we'll check it against your picks.
     </div>`;
     return;
   }
 
-  const cap = spaceCapacity(state.chosen, item);
-  state.fit = { capacity: cap.capacity, qty: item.qty, exact };
-  const basis = exact ? 'based on the size you gave us' : 'based on a typical size for that kind of item';
+  // Capacity is summed across every space picked, since the load can be split between them.
+  const per = state.chosen.map(s => ({ space: s, cap: spaceCapacity(s, item) }));
+  const capacity = per.reduce((sum, p) => sum + p.cap.capacity, 0);
+  state.fit = { capacity, qty: item.qty, exact };
 
-  if (cap.capacity >= item.qty) {
+  const basis = exact ? 'based on the size you gave us' : 'based on a typical size for that kind of item';
+  const across = state.chosen.length > 1
+    ? `${escapeHtml(chosenNames())} together hold`
+    : `${escapeHtml(state.chosen[0].name)} holds`;
+  const breakdown = state.chosen.length > 1
+    ? `<div class="fit-breakdown">${per.map(p =>
+        `${escapeHtml(p.space.name)} about ${whole(p.cap.capacity)}`).join(' \u00b7 ')}</div>`
+    : '';
+
+  if (capacity >= item.qty) {
     box.innerHTML = `<div class="notice ok-notice">
         <strong>That should fit.</strong>
-        ${escapeHtml(state.chosen.name)} holds roughly ${whole(cap.capacity)} of these,
-        and you have ${whole(item.qty)} — ${basis}.
+        ${across} roughly ${whole(capacity)} of these, and you have ${whole(item.qty)} \u2014 ${basis}.
+        ${breakdown}
       </div>`;
     return;
   }
 
-  state.fit.warning = `Might not fit: holds about ${whole(cap.capacity)}, needs ${whole(item.qty)}`;
+  state.fit.warning = `Might not fit: holds about ${whole(capacity)}, needs ${whole(item.qty)}`;
   box.innerHTML = `<div class="notice warn-notice">
       <strong>This might be tight.</strong>
-      ${escapeHtml(state.chosen.name)} looks like it holds roughly ${whole(cap.capacity)} of these,
-      and you're planning on ${whole(item.qty)} — ${basis}.
+      ${across} roughly ${whole(capacity)} of these, and you're planning on ${whole(item.qty)} \u2014 ${basis}.
       ${exact
-        ? 'You can still go ahead, but you may need a second space.'
+        ? 'You can still go ahead, but you may want another space.'
         : 'If you know the exact size of one item, tick the box above and we can be more precise.'}
+      ${breakdown}
     </div>`;
 }
 
 function renderChosenBar() {
-  const s = state.chosen;
-  $('#chosen-bar').innerHTML = s
-    ? `<strong>${escapeHtml(s.name)}</strong>
-       <span class="muted-inline">${whole(s.size_sqft)} sq ft · ${s.height_ft} ft high ·
-       ${fmtDate(state.range.start)} to ${fmtDate(state.range.end)}</span>`
-    : '';
+  if (!state.chosen.length) { $('#chosen-bar').innerHTML = ''; return; }
+  const area = state.chosen.reduce((sum, s) => sum + Number(s.size_sqft || 0), 0);
+  $('#chosen-bar').innerHTML = `<strong>${escapeHtml(chosenNames())}</strong>
+     <span class="muted-inline">${whole(area)} sq ft ·
+     ${usableHeight(state.chosen[0])} ft usable height ·
+     ${fmtDate(state.range.start)} to ${fmtDate(state.range.end)}</span>`;
 }
 
 // ---- Step 4: checkout, against the clock ----
@@ -285,8 +348,9 @@ function renderCountdown(secondsLeft) {
   }
   const mins = Math.floor(secondsLeft / 60);
   const secs = String(secondsLeft % 60).padStart(2, '0');
-  el.className = `hold-timer${secondsLeft <= 30 ? ' urgent' : ''}`;
-  el.innerHTML = `We're holding ${escapeHtml(state.hold.space)} for you —
+  el.className = `hold-timer${secondsLeft <= 60 ? ' urgent' : ''}`;
+  const names = state.hold.spaces.map(s => s.name).join(', ');
+  el.innerHTML = `We're holding ${escapeHtml(names)} for you —
     <strong>${mins}:${secs}</strong> left to finish`;
 }
 
@@ -313,33 +377,39 @@ function expireHold() {
 
 async function beginCheckout() {
   const { item, label } = currentItem();
-  const body = {
-    space_id: state.chosen.id,
-    start_date: state.range.start,
-    days: state.range.days,
-    quantity: item?.qty ?? null,
-    item_label: label,
-    item_l_ft: item?.l ?? null,
-    item_w_ft: item?.w ?? null,
-    item_h_ft: item?.h ?? null,
-    estimated_capacity: state.fit?.capacity ?? null,
-    fit_warning: state.fit?.warning ?? null,
-  };
-
-  const hold = await api('/api/public/holds', { method: 'POST', body: JSON.stringify(body) });
+  const hold = await api('/api/public/holds', {
+    method: 'POST',
+    body: JSON.stringify({
+      space_ids: state.chosen.map(s => s.id),
+      start_date: state.range.start,
+      days: state.range.days,
+      quantity: item?.qty ?? null,
+      item_label: label,
+      item_l_ft: item?.l ?? null,
+      item_w_ft: item?.w ?? null,
+      item_h_ft: item?.h ?? null,
+      estimated_capacity: state.fit?.capacity ?? null,
+      fit_warning: state.fit?.warning ?? null,
+    }),
+  });
   state.hold = hold;
 
   $('#confirm-error').textContent = '';
+  const perSpace = hold.spaces.length > 1
+    ? `<div class="calc-row"><span></span><span class="muted-inline">${hold.spaces
+        .map(s => `${escapeHtml(s.name)} ${money(s.amount)}`).join(' \u00b7 ')}</span></div>`
+    : '';
+
   $('#summary').innerHTML = `
     <div class="calc-block">
-      <div class="calc-row"><span>Space</span><span>${escapeHtml(hold.space)}</span></div>
+      <div class="calc-row"><span>Space${hold.spaces.length > 1 ? 's' : ''}</span><span>${escapeHtml(hold.spaces.map(s => s.name).join(', '))}</span></div>
       <div class="calc-row"><span>Dates</span><span>${fmtDate(hold.start_date)} to ${fmtDate(hold.end_date)}</span></div>
-      <div class="calc-row"><span>Storing</span><span>${item ? `${whole(item.qty)} × ${escapeHtml(label)}` : '—'}</span></div>
+      <div class="calc-row"><span>Storing</span><span>${item ? `${whole(item.qty)} \u00d7 ${escapeHtml(label)}` : '\u2014'}</span></div>
       ${state.fit?.warning ? `<div class="calc-row"><span>Note</span><span class="balance-positive">${escapeHtml(state.fit.warning)}</span></div>` : ''}
+      ${perSpace}
       ${hold.amount
-        ? `<div class="calc-row"><span>${money(hold.amount / hold.days)} per day × ${hold.days}</span><span></span></div>
-           <div class="calc-row calc-total"><span>To pay</span><span>${money(hold.amount)}</span></div>`
-        : '<div class="calc-row"><span>Price</span><span>We’ll confirm it with you</span></div>'}
+        ? `<div class="calc-row calc-total"><span>To pay for ${hold.days} day${hold.days === 1 ? '' : 's'}</span><span>${money(hold.amount)}</span></div>`
+        : '<div class="calc-row"><span>Price</span><span>We\u2019ll confirm it with you</span></div>'}
     </div>`;
 
   goToStep('step-4');
@@ -354,29 +424,42 @@ async function payNow() {
     $('#confirm-error').textContent = 'Please tell us your name.';
     return;
   }
+  if (!d.contact && !d.email) {
+    $('#confirm-error').textContent = 'Please leave a mobile number or an email so we can reach you.';
+    return;
+  }
 
   try {
-    const result = await api(`/api/public/bookings/${state.hold.id}/pay`, {
+    const result = await api(`/api/public/holds/${state.hold.group_id}/pay`, {
       method: 'POST',
-      body: JSON.stringify({ customer_name: d.customer_name, contact: d.contact }),
+      body: JSON.stringify({
+        customer_name: d.customer_name,
+        contact: d.contact,
+        email: d.email,
+        whatsapp: !!d.whatsapp,
+      }),
     });
     stopCountdown();
 
+    const names = result.spaces.join(', ');
     $('#done-text').innerHTML = `Thanks ${escapeHtml(d.customer_name)} —
-      <strong>${escapeHtml(result.space)}</strong> is yours from
+      <strong>${escapeHtml(names)}</strong> ${result.spaces.length > 1 ? 'are' : 'is'} yours from
       ${fmtDate(state.hold.start_date)} to ${fmtDate(state.hold.end_date)}.`;
     $('#payment-stub').innerHTML = `
       <div class="notice info-notice payment-stub">
         <strong>Payment isn't connected yet.</strong>
         This is where the card or UPI step will go${result.amount ? `, for ${money(result.amount)}` : ''}.
         The booking is recorded either way.
+      </div>
+      <div class="notice info-notice payment-stub">
+        Remember that loading and unloading charges are settled directly with the labour.
       </div>`;
     state.hold = null;
+    state.chosen = [];
     goToStep('step-done');
   } catch (err) {
     if (err.expired) {
-      $('#expired-text').textContent = err.message +
-        " We only hold a space for a couple of minutes so it doesn't sit blocked for everyone else. Nothing has been charged.";
+      $('#expired-text').textContent = `${err.message} We only hold spaces for a few minutes so they don't sit blocked for everyone else. Nothing has been charged.`;
       expireHold();
       return;
     }
@@ -398,15 +481,48 @@ const actions = {
 
   choose(id) {
     const space = state.spaces.find(s => s.id === Number(id));
-    if (!space || !space.available) return;
-    state.chosen = space;
+    if (!space || !space.available || isChosen(space)) return;
+    toggleChoice(space);
+    renderStage();
+    renderDetail(space);
+  },
+
+  unchoose(id) {
+    const space = state.spaces.find(s => s.id === Number(id));
+    if (!space) return;
+    toggleChoice(space);
+    renderStage();
+    renderDetail(space);
+  },
+
+  'to-goods'() {
+    if (!state.chosen.length) { toast('Pick at least one space', 'err'); return; }
     renderChosenBar();
+    renderItemGrid();
     renderFit();
     goToStep('step-3');
   },
 
+  'pick-item'(id) {
+    $('#goods-preset').value = id;
+    const preset = presetById(id);
+    const form = $('#goods-form');
+    if (id === 'custom' && !$('#exact-toggle').checked) {
+      $('#exact-toggle').checked = true;
+      $('#exact-fields').classList.remove('hidden');
+    }
+    if (preset && preset.id !== 'custom' && $('#exact-toggle').checked) {
+      form.dim_unit.value = 'm';
+      form.item_l.value = preset.l;
+      form.item_w.value = preset.w;
+      form.item_h.value = preset.h;
+    }
+    renderItemGrid();
+    renderFit();
+  },
+
   async 'to-checkout'() {
-    if (!state.chosen) { toast('Pick a space first', 'err'); return; }
+    if (!state.chosen.length) { toast('Pick a space first', 'err'); return; }
     const { item } = currentItem();
     if (!item) { toast('Tell us how many items and roughly what size', 'err'); return; }
     try {
@@ -421,7 +537,7 @@ const actions = {
   async 'cancel-hold'() {
     stopCountdown();
     if (state.hold) {
-      await api(`/api/public/holds/${state.hold.id}/release`, { method: 'POST' }).catch(() => {});
+      await api(`/api/public/holds/${state.hold.group_id}/release`, { method: 'POST' }).catch(() => {});
       state.hold = null;
     }
     await loadSpacesForDates();
@@ -431,7 +547,7 @@ const actions = {
   pay: () => payNow(),
 
   async 'start-over'() {
-    state.chosen = null;
+    state.chosen = [];
     state.hold = null;
     await loadSpacesForDates();
     goToStep('step-2');
@@ -449,8 +565,7 @@ document.addEventListener('click', e => {
 
 // ---- Start ----
 document.addEventListener('DOMContentLoaded', async () => {
-  $('#goods-preset').innerHTML = ITEM_PRESETS
-    .map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+  renderItemGrid();
   $('#dates-form').start_date.value = todayStr();
   renderDatesSummary();
 
