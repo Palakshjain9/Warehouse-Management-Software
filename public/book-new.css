@@ -167,6 +167,27 @@ label.stack {
 
 .card .checkbox-line { font-size: 13px; }
 
+/* ---- The quantity, which is the whole question on the goods screen ---- */
+.qty-card { border-left-width: 4px; }
+.qty-label { display: block; font-size: 15px; font-weight: 600; margin-bottom: 9px; }
+.qty-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+
+.qty-row input {
+  width: 130px;
+  flex: 0 0 auto;
+  padding: 9px 11px;
+  border: 2px solid var(--accent);
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  text-align: right;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.qty-unit { font-size: 14px; color: var(--muted); min-width: 0; }
+
 .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
 .facts div { display: flex; flex-direction: column; }
 .facts span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }

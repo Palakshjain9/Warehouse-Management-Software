@@ -394,6 +394,11 @@ function initPlan() {
 // ---- Goods ----
 function renderItemGrid() {
   const chosenId = $('#f-preset').value;
+  const chosen = presetById(chosenId);
+  // Naming the thing beside the number saves asking "how many what?".
+  $('#qty-unit').textContent =
+    `× ${chosen && chosen.id !== 'custom' ? chosen.name : 'items'}`;
+
   $('#item-grid').innerHTML = ITEM_PRESETS.map(p => `
     <button type="button" class="item-card${p.id === chosenId ? ' selected' : ''}"
             data-action="pick-item" data-id="${p.id}">

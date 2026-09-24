@@ -70,11 +70,15 @@
 
     <aside class="pane-right">
       <div class="rail-scroll">
-        <div class="card accent" id="goods-picks"></div>
-        <div class="card">
-          <label class="stack">How many?
-            <input type="number" id="f-qty" value="300" min="1">
-          </label>
+        <div class="card" id="goods-picks"></div>
+        <!-- The quantity is the question on this screen, so it gets the emphasis
+             rather than the picks card repeating what's already been chosen. -->
+        <div class="card accent qty-card">
+          <label class="qty-label" for="f-qty">How many are you storing?</label>
+          <div class="qty-row">
+            <input type="number" id="f-qty" value="300" min="1" inputmode="numeric">
+            <span class="qty-unit" id="qty-unit"></span>
+          </div>
           <label class="checkbox-line">
             <input type="checkbox" id="f-exact"> I know the exact size of one item
           </label>
