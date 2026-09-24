@@ -421,9 +421,15 @@ tr.row-ended td { color: var(--muted); }
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface);
-  touch-action: none;
   user-select: none;
 }
+
+/* The owner drags a box across the drawing to map a space, so the browser must
+   not read that drag as a scroll. The customer only taps, so on their page a
+   thumb landing on the plan has to scroll the page like anywhere else —
+   `manipulation` keeps pinch-zoom and drops only the double-tap zoom delay. */
+#plan-frame { touch-action: none; }
+#book-frame { touch-action: manipulation; }
 
 #plan-frame.drawing { cursor: crosshair; }
 #plan-img, #book-frame img { display: block; max-width: 100%; height: auto; }

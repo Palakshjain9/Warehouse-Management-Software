@@ -89,11 +89,17 @@
   line-height: 0;
   overflow: hidden;
   background: var(--surface);
-  touch-action: none;
   user-select: none;
+  /* Not `none`: a thumb landing on the plan must still scroll the page. This is
+     the customer's page — nothing here is dragged. `manipulation` keeps
+     pinch-zoom and only drops the double-tap zoom delay. */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
 }
 
-.plan-frame img { display: block; width: 100%; height: auto; }
+/* The drawing is never the thing you tap — the boxes over it are — so keeping it
+   out of hit testing stops Android offering to save the image on a long press. */
+.plan-frame img { display: block; width: 100%; height: auto; pointer-events: none; }
 .plan-holder .empty-state { border: none; background: none; padding: 0; }
 
 .legend-inline { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
