@@ -23,6 +23,10 @@ app.use('/api/public', publicRouter);
 
 app.get('/book', (req, res) => res.sendFile(path.join(__dirname, 'public', 'book.html')));
 
+// The split-layout version of the same flow, live alongside /book so the two can
+// be compared before either is retired.
+app.get('/book-new', (req, res) => res.sendFile(path.join(__dirname, 'public', 'book-new.html')));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((err, req, res, next) => {

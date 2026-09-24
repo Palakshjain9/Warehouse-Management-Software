@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book storage space</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="book-new.css">
+</head>
+<body class="book-body split-body">
+
+<header class="nb-head">
+  <h1>Basement Storage</h1>
+  <ol class="steps">
+    <li data-step="1" class="current">Pick your space</li>
+    <li data-step="2">Your goods</li>
+    <li data-step="3">Checkout</li>
+  </ol>
+</header>
+
+<!-- 1. Dates and the plan, side by side -->
+<section id="stage-pick" class="stage active">
+  <div class="split">
+    <div class="pane-left">
+      <div class="legend-inline">
+        <span><i class="swatch is-free"></i> Available</span>
+        <span><i class="swatch is-chosen"></i> Your picks</span>
+        <span><i class="swatch is-taken"></i> Booked</span>
+      </div>
+      <div class="plan-holder" id="plan-holder"></div>
+      <!-- Tapping a hand-drawn plan is fiddly on a phone, so the same spaces are
+           listed underneath. Hidden on wide screens. -->
+      <div class="space-list" id="space-list"></div>
+    </div>
+
+    <aside class="pane-right">
+      <div class="sheet-grip"></div>
+      <div class="rail-scroll">
+        <div class="card accent">
+          <div class="mini-row">
+            <label>From<input type="date" id="f-start" required></label>
+            <label>Days<input type="number" id="f-days" value="7" min="1" max="365"></label>
+          </div>
+          <p class="muted-line" id="date-note"></p>
+        </div>
+
+        <div id="space-detail"></div>
+        <div id="picks-card"></div>
+      </div>
+      <div class="rail-foot">
+        <button class="primary" id="to-goods" data-action="to-goods" disabled>Continue</button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- 2. What they're storing -->
+<section id="stage-goods" class="stage">
+  <div class="split">
+    <div class="pane-left scrolls">
+      <h2>What are you planning to store?</h2>
+      <p class="intro-line">
+        A rough idea is enough. If you know the exact size of one item, tell us and we can
+        be more precise about whether it fits.
+      </p>
+      <div class="item-grid" id="item-grid"></div>
+      <input type="hidden" id="f-preset" value="carton-lg">
+    </div>
+
+    <aside class="pane-right">
+      <div class="sheet-grip"></div>
+      <div class="rail-scroll">
+        <div class="card accent" id="goods-picks"></div>
+        <div class="card">
+          <label class="stack">How many?
+            <input type="number" id="f-qty" value="300" min="1">
+          </label>
+          <label class="checkbox-line">
+            <input type="checkbox" id="f-exact"> I know the exact size of one item
+          </label>
+          <div class="mini-row hidden" id="exact-row">
+            <label>L<input type="number" id="f-l" step="any" min="0"></label>
+            <label>W<input type="number" id="f-w" step="any" min="0"></label>
+            <label>H<input type="number" id="f-h" step="any" min="0"></label>
+            <label>Units
+              <select id="f-unit"><option value="m">m</option><option value="ft">ft</option></select>
+            </label>
+          </div>
+        </div>
+        <div id="fit-verdict"></div>
+      </div>
+      <div class="rail-foot">
+        <button data-action="back-to-pick">Back</button>
+        <button class="primary" data-action="to-checkout">Continue</button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- 3. Checkout, against the clock -->
+<section id="stage-checkout" class="stage">
+  <div class="split">
+    <div class="pane-left scrolls">
+      <h2>Checkout</h2>
+      <div id="order-summary"></div>
+      <div class="notice info-notice">
+        <strong>Loading and unloading is between you and the labour.</strong>
+        Whatever you agree to pay them for moving your goods in and out is settled directly
+        with them. We charge only for the space, and have no part in those rates.
+      </div>
+      <!-- The plan again, with only what's being held marked, so there's no doubt
+           about which corner of the basement is being paid for. -->
+      <div class="plan-holder" id="checkout-plan"></div>
+    </div>
+
+    <aside class="pane-right">
+      <div class="sheet-grip"></div>
+      <div class="rail-scroll">
+        <div id="hold-timer" class="hold-timer"></div>
+        <div class="card">
+          <label class="stack">Your name<input type="text" id="f-name" required></label>
+          <label class="stack">Email<input type="email" id="f-email" placeholder="you@example.com"></label>
+          <label class="stack">Mobile number<input type="tel" id="f-phone" placeholder="98200 00000"></label>
+          <label class="checkbox-line">
+            <input type="checkbox" id="f-wa" checked> This number is on WhatsApp
+          </label>
+        </div>
+        <p class="error" id="pay-error"></p>
+      </div>
+      <div class="rail-foot">
+        <button data-action="cancel-hold">Cancel</button>
+        <button class="primary" data-action="pay">Pay and confirm</button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section id="stage-done" class="stage">
+  <div class="centred">
+    <div class="empty-state">
+      <h2>Booking confirmed</h2>
+      <p id="done-text"></p>
+      <div id="done-extra"></div>
+    </div>
+  </div>
+</section>
+
+<section id="stage-expired" class="stage">
+  <div class="centred">
+    <div class="empty-state">
+      <h2>That hold ran out</h2>
+      <p id="expired-text">
+        We only hold spaces for a few minutes so they don't sit blocked for everyone else.
+        Nothing has been charged — please pick again.
+      </p>
+      <button class="primary" data-action="start-over">Pick again</button>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="hidden"></div>
+
+<script src="fit.js"></script>
+<script src="book-new.js"></script>
+</body>
+</html>

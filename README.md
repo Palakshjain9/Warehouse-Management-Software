@@ -56,6 +56,31 @@ seconds rather than waiting two minutes.
 provider needs an account, API keys and a webhook to confirm payment before a space is
 held for good.
 
+## The same flow, laid out differently — `/book-new`
+
+A second copy of the customer page, live alongside `/book` so the two can be compared
+side by side before either is retired. Same server, same rules, same money — only the
+layout differs.
+
+Instead of four full-width steps stacked down the page, it is a **split view**: the plan on
+the left, and a rail on the right carrying the dates, the tapped space's facts, the running
+total and the button. Picking a space, reading its details and watching the total move all
+happen without scrolling. The dates sit in the rail rather than on a screen of their own, so
+changing them re-colours the plan in place. Three stages instead of four — pick, goods,
+checkout — and each one fills a 1280 × 800 screen exactly, with no scroll.
+
+On a phone two columns can't survive, so the plan goes across the top and the rail becomes
+a **sheet at the bottom of the screen** with the total and the button always in view. Under
+the plan is a plain **list of the same spaces** with an Add button each, because a thumb
+misses small areas on a hand-drawn plan. The list and the plan stay in step — picking in
+one shows in the other.
+
+Checkout carries the plan a second time, marked with nothing but the spaces on hold, so
+there's no doubt about which corner of the basement is being paid for.
+
+Nothing on `/book` changed. Both pages read and write the same bookings, so a hold taken on
+one shows as booked on the other.
+
 ### Item pictures
 
 The grid draws from `ITEM_PRESETS` in `public/fit.js`, and each entry points at a file in
@@ -97,7 +122,8 @@ npm install
 npm start
 ```
 
-Admin at http://localhost:3000, customer page at http://localhost:3000/book.
+Admin at http://localhost:3000, customer page at http://localhost:3000/book, and the
+split-layout version of it at http://localhost:3000/book-new.
 
 Data lives in a local SQLite file at `data/storage.db`, created automatically and not
 committed.
@@ -113,8 +139,8 @@ deploy. Before real customers use it, storage needs to move to a hosted database
 
 ## Currency
 
-Amounts render as `₹` with Indian digit grouping, set at the top of `public/app.js` and
-`public/book.js` (`CURRENCY` and `LOCALE`).
+Amounts render as `₹` with Indian digit grouping, set at the top of `public/app.js`,
+`public/book.js` and `public/book-new.js` (`CURRENCY` and `LOCALE`).
 
 ## Not built yet
 

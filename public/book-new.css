@@ -1,0 +1,284 @@
+/* Split layout for the booking page: plan on the left, a rail of details on the
+   right, both visible at once. Loaded on top of style.css, which still supplies
+   the colours, buttons, notices and hotspot states. */
+
+:root { --rail: 380px; }
+
+/* The whole page is one screen on a desktop: header, then the active stage
+   stretched to fill whatever is left. No magic header height to keep in sync. */
+.split-body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nb-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.nb-head h1 { margin: 0; font-size: 17px; }
+.nb-head .steps { margin-left: auto; margin-bottom: 0; }
+
+.stage { display: none; }
+.stage.active { display: block; flex: 1 1 auto; min-height: 0; }
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail);
+  gap: 16px;
+  padding: 14px 20px;
+  height: 100%;
+}
+
+.pane-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.pane-left.scrolls { overflow-y: auto; }
+.pane-left h2 { margin: 0; font-size: 18px; }
+.pane-left .intro-line { margin: 0; }
+
+.pane-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.rail-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rail-foot { flex: 0 0 auto; display: flex; gap: 8px; }
+.rail-foot .primary { flex: 1; }
+
+/* ---- The plan ---- */
+.plan-holder {
+  flex: 1 1 0%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* The frame shrink-wraps the drawing so the hotspot percentages stay true; its
+   width is set in script to the largest that fits the holder. */
+.plan-frame {
+  position: relative;
+  max-width: 100%;
+  line-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  touch-action: none;
+  user-select: none;
+}
+
+.plan-frame img { display: block; width: 100%; height: auto; }
+.plan-holder .empty-state { border: none; background: none; padding: 0; }
+
+.legend-inline { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend-inline span { display: flex; align-items: center; gap: 5px; }
+
+/* On the checkout stage the plan is only there to be looked at. */
+#checkout-plan { margin-top: 4px; }
+#checkout-plan .hot-box { cursor: default; }
+
+.pane-left .item-grid { margin-bottom: 0; }
+
+/* On a wide screen there's a whole pane for the pictures, so they can be worth
+   looking at. On a phone they stay small — more of them fit above the sheet. */
+@media (min-width: 861px) {
+  .pane-left .item-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .pane-left .item-card img { max-width: 116px; }
+  .pane-left .item-card .item-name { font-size: 14px; }
+}
+
+/* ---- Cards in the rail ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.card h3 { margin: 0 0 8px; font-size: 14px; }
+.card h3 .badge { float: right; }
+.card.accent { border-left: 3px solid var(--accent); }
+.card .muted-line { margin: 8px 0 0; font-size: 13px; }
+.card > label.stack:last-child { margin-bottom: 0; }
+
+.mini-row { display: flex; gap: 8px; }
+.mini-row label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+label.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.mini-row input, .mini-row select, label.stack input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.card .checkbox-line { font-size: 13px; }
+
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.facts div { display: flex; flex-direction: column; }
+.facts span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.facts strong { font-size: 15px; }
+
+.detail-btn { width: 100%; margin-top: 10px; }
+
+.pick-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.pick-row:last-of-type { border-bottom: none; }
+.pick-row .sub { color: var(--muted); font-size: 12px; }
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 10px;
+  margin-top: 6px;
+  border-top: 2px solid var(--border);
+  font-weight: 600;
+}
+
+.total-row .big { font-size: 20px; }
+
+.rail-scroll .notice { margin: 0; font-size: 13px; }
+.rail-scroll .hold-timer:not(:empty) { margin-bottom: 0; }
+.rail-scroll .error { margin: 0 2px; }
+
+/* ---- The space list, for thumbs that miss on a hand-drawn plan ---- */
+.space-list { display: none; }
+
+.space-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--good);
+  border-radius: var(--radius);
+}
+
+.space-row + .space-row { margin-top: 7px; }
+.space-row { scroll-margin-bottom: calc(var(--sheet-h, 0px) + 10px); }
+.space-row.added { border-left-color: var(--accent); background: #f5f8ff; }
+.space-row.gone { border-left-color: var(--warn); opacity: 0.6; }
+.space-row .who { flex: 1; min-width: 0; }
+.space-row .nm { font-weight: 600; font-size: 14px; }
+.space-row .mt { font-size: 12px; color: var(--muted); }
+.space-row .pr { text-align: right; font-size: 13px; white-space: nowrap; }
+.space-row button { padding: 5px 11px; font-size: 13px; }
+
+.centred {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.centred .empty-state { max-width: 560px; }
+
+.sheet-grip { display: none; }
+
+@media (max-width: 860px) {
+  /* Two columns can't survive a phone: the plan goes on top, the rail becomes a
+     sheet pinned to the bottom of the screen. */
+  .split-body { height: auto; overflow: visible; display: block; }
+  .stage.active { display: block; }
+
+  /* The bottom padding is replaced in script with the sheet's real height. */
+  .split {
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: 12px 14px 240px;
+  }
+
+  .plan-holder { height: auto; padding: 8px; }
+  /* Sized by width on a phone — fixing the height instead forces the frame
+     wider than the viewport. */
+  .plan-frame { width: 100%; }
+
+  .space-list { display: block; }
+
+  .pane-right {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 14px 14px 0 0;
+    padding: 10px 14px 14px;
+    box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.13);
+    max-height: 62vh;
+  }
+
+  .sheet-grip {
+    display: block;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin: 0 auto 4px;
+  }
+
+  .centred { height: auto; }
+  .nb-head .steps { margin-left: 0; width: 100%; }
+}
