@@ -105,11 +105,10 @@ the same filename and the picker shows the photograph instead, no code change.
   you. A space with bookings on record can't be deleted by accident.
 - **Bookings** — everything booked through the customer page, including holds in flight and
   the fit caution the customer saw. Cancel frees the space up again.
-- **Space picker** — your own copy of the fit check, showing the full working for every
-  space.
 
 ## How the fit check works
 
+This is what sits behind the caution on the customer page.
 For each space it takes the **usable floor** — which is where wall support earns its keep,
 since a corner only needs access from two sides while an island needs it all the way round
 (60% open / 70% one wall / 75% corner / 80% alcove) — and the **layers** that fit under

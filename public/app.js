@@ -184,7 +184,6 @@ function openSpaceEdit(id) {
 async function refreshAll() {
   await Promise.all([loadSpaces(), loadBookings()]);
   await loadDashboard();
-  renderCalcResults();
   renderPlan();
 }
 
@@ -271,10 +270,6 @@ const actions = {
     toast('Drawing removed');
   },
 
-  'apply-max-stack'(maxStack) {
-    $('#calc-form').max_stack.value = maxStack;
-    renderCalcResults();
-  },
 };
 
 document.addEventListener('click', async e => {
@@ -303,140 +298,12 @@ document.addEventListener('submit', async e => {
   }
 });
 
-// ---- Space picker ----
-// Wall factors, item presets and capacity maths live in fit.js, shared with /book.
+// ---- The add-a-space form ----
+// Wall factors and the capacity maths live in fit.js, shared with /book.
 
-function sqft(n) {
-  return Number(n).toLocaleString(LOCALE, { maximumFractionDigits: n < 100 ? 1 : 0 });
-}
-
-function whole(n) {
-  return Math.round(Number(n)).toLocaleString(LOCALE);
-}
-
-function calcInputs() {
-  return Object.fromEntries(new FormData($('#calc-form')).entries());
-}
-
-function itemFromInputs(d) {
-  return makeItem({
-    l: d.item_l, w: d.item_w, h: d.item_h, unit: d.dim_unit,
-    quantity: d.quantity, maxStack: d.max_stack,
-  });
-}
-
-function capacityRow(r, item) {
-  const s = r.space;
-  const fits = r.capacity >= item.qty;
-  const status = s.booked_today ? 'booked today' : 'available today';
-
-  const verdict = r.capacity === 0
-    ? 'Too low for even one layer'
-    : fits
-      ? `Holds about ${whole(r.capacity)} — room for ${whole(r.capacity - item.qty)} more`
-      : `Holds about ${whole(r.capacity)} — ${whole(item.qty - r.capacity)} short`;
-
-  return `<li class="${fits && !s.booked_today ? 'fit-yes' : s.booked_today ? 'fit-taken' : 'fit-no'}">
-      <div class="fit-head">
-        <span class="fit-name">${escapeHtml(s.name)}</span>
-        <span class="fit-verdict">${verdict}</span>
-      </div>
-      <div class="fit-meta">
-        ${s.length_ft} × ${s.width_ft} × ${s.height_ft} ft · ${r.wall.short} · ${status}
-      </div>
-      <div class="fit-working">
-        ${sqft(r.usableFloor)} sq ft usable (${Math.round(r.wall.usable * 100)}% of ${sqft(r.floorSqft)})
-        ÷ ${sqft(item.footprint)} sq ft = ${whole(r.perLayer)} per layer,
-        ${whole(r.layers)} layer${r.layers === 1 ? '' : 's'} high${r.limitedByRule ? ' (your limit)' : ` in ${sqft(r.usableHeight)} ft usable height`}
-      </div>
-    </li>`;
-}
-
-function renderCalcResults() {
-  const box = $('#calc-results');
-  if (!box) return;
-  const item = itemFromInputs(calcInputs());
-
-  if (!item) {
-    box.innerHTML = '<p class="muted-line">Enter how many there are and the size of one of them.</p>';
-    return;
-  }
-
-  const measured = state.spaces.filter(s => Number(s.size_sqft) > 0 && Number(s.height_ft) > 0);
-  if (!measured.length) {
-    box.innerHTML = '<p class="muted-line">No spaces with dimensions recorded yet.</p>';
-    return;
-  }
-
-  const rows = measured.map(s => ({ space: s, ...spaceCapacity(s, item) }));
-  const free = rows.filter(r => !r.space.booked_today);
-  const fitting = free.filter(r => r.capacity >= item.qty).sort((a, b) => a.floorSqft - b.floorSqft);
-  const best = fitting[0] || null;
-  const biggest = [...free].sort((a, b) => b.capacity - a.capacity)[0] || null;
-
-  const headline = best
-    ? `<div class="result-headline">
-        <div class="result-value">${escapeHtml(best.space.name)}</div>
-        <div class="result-sub">smallest space available today that takes all ${whole(item.qty)} —
-          holds about ${whole(best.capacity)}
-          ${fitting.length > 1 ? `· ${fitting.length} would do` : ''}</div>
-      </div>`
-    : biggest
-      ? `<div class="result-headline no-fit">
-          <div class="result-value">Nothing available today takes all ${whole(item.qty)}</div>
-          <div class="result-sub">The roomiest available space, ${escapeHtml(biggest.space.name)},
-            holds about ${whole(biggest.capacity)}.</div>
-        </div>`
-      : `<div class="result-headline no-fit">
-          <div class="result-value">Everything is booked today</div>
-          <div class="result-sub">No available spaces to compare against.</div>
-        </div>`;
-
-  const ordered = [
-    ...fitting,
-    ...free.filter(r => r.capacity < item.qty).sort((a, b) => b.capacity - a.capacity),
-    ...rows.filter(r => r.space.booked_today).sort((a, b) => b.capacity - a.capacity),
-  ];
-
-  box.innerHTML = `
-    ${headline}
-    <h4>Every space, measured against this load</h4>
-    <ul class="fit-list">${ordered.map(r => capacityRow(r, item)).join('')}</ul>
-    <p class="muted-line footnote">
-      Counts are approximate: usable floor is divided by the footprint of one item, so it
-      assumes goods pack reasonably tightly. ${HEADROOM_FT} ft is left as headroom under
-      the ceiling in every space.
-    </p>`;
-}
-
-function applyPreset() {
-  const preset = presetById($('#calc-preset').value);
-  if (!preset || preset.id === 'custom') return;
-  const form = $('#calc-form');
-  form.dim_unit.value = 'm';
-  form.item_l.value = preset.l;
-  form.item_w.value = preset.w;
-  form.item_h.value = preset.h;
-}
-
-function initCalculator() {
-  $('#calc-preset').innerHTML = ITEM_PRESETS
-    .map(p => `<option value="${p.id}">${escapeHtml(presetLabel(p))}</option>`).join('');
+function initSpaceForm() {
   $('#space-wall-select').innerHTML = WALL_OPTIONS
     .map(w => `<option value="${w.value}">${escapeHtml(w.label)}</option>`).join('');
-  applyPreset();
-
-  // Only 'input' — a 'change' listener here would re-render on blur, destroying any
-  // result button mid-click before the browser can synthesise the click event.
-  $('#calc-form').addEventListener('input', e => {
-    if (e.target.name === 'preset') applyPreset();
-    if (['item_l', 'item_w', 'item_h'].includes(e.target.name)) {
-      $('#calc-preset').value = 'custom';
-    }
-    renderCalcResults();
-  });
-
-  $('#calc-form').addEventListener('submit', e => e.preventDefault());
 }
 
 // ---- Plan drawing and hotspot mapping ----
@@ -647,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  initCalculator();
+  initSpaceForm();
   initPlan();
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', e => {

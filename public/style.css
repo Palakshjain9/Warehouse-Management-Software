@@ -331,24 +331,6 @@ tr.row-ended td { color: var(--muted); }
   min-width: 0;
 }
 
-.unit-suffix {
-  font-size: 13px;
-  color: var(--muted);
-  padding-bottom: 10px;
-}
-
-.result-headline {
-  margin-top: 20px;
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius);
-}
-
-.result-value { font-size: 30px; font-weight: 600; }
-.result-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
-
 .notice {
   margin-top: 14px;
   padding: 12px 14px;
@@ -360,56 +342,8 @@ tr.row-ended td { color: var(--muted); }
 .warn-notice { background: #fdeeea; color: #8c2c1f; border: 1px solid #f3cfc7; }
 .warn-notice button { margin-left: 6px; padding: 4px 10px; font-size: 13px; }
 
-.fit-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.fit-list li {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-  border-left: 3px solid transparent;
-}
-
-.fit-list li:last-child { border-bottom: none; }
-
-.fit-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .fit-name { font-weight: 600; }
-.fit-verdict { text-align: right; }
-.fit-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
-.fit-working { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.5; }
-
-.fit-yes { border-left-color: var(--good); }
-.fit-yes .fit-verdict { color: var(--good); font-weight: 600; }
-.fit-no .fit-verdict { color: var(--warn); }
-.fit-taken { background: var(--bg); }
-.fit-taken .fit-name, .fit-taken .fit-verdict { color: var(--muted); }
-
 .cell-note { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: normal; }
-
-.result-headline.no-fit { border-left-color: var(--warn); }
-.result-headline.no-fit .result-value { font-size: 20px; }
-.headline-rent {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  font-size: 14px;
-}
-
-.footnote { font-size: 12px; margin-top: 12px; line-height: 1.6; }
 
 /* ---- Layout drawing and hotspots ---- */
 #plan-frame, #book-frame {
@@ -787,7 +721,4 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .field-row label, .field-row label.grow { flex: 1 1 100%; }
   .field-row { gap: 10px; }
-  .unit-suffix { padding-bottom: 0; }
-  .result-value { font-size: 26px; }
-  .fit-verdict { flex: 1 1 100%; text-align: left; }
 }

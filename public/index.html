@@ -14,7 +14,6 @@
     <button class="tab-btn" data-tab="plan">Floor plan</button>
     <button class="tab-btn" data-tab="spaces">Spaces</button>
     <button class="tab-btn" data-tab="bookings">Bookings</button>
-    <button class="tab-btn" data-tab="calculator">Space picker</button>
   </nav>
 </header>
 
@@ -145,42 +144,6 @@
         <tbody></tbody>
       </table>
     </div>
-  </section>
-
-  <section id="calculator" class="tab-panel">
-    <h2>Which space fits?</h2>
-    <p class="intro-line">
-      Your own version of the customer's fit check. Say what's being stored and roughly how
-      big one of them is, and this works out how many each space can hold.
-    </p>
-
-    <form id="calc-form" class="calc-form" autocomplete="off">
-      <div class="field-row">
-        <label class="grow">What are you storing?
-          <select name="preset" id="calc-preset"></select>
-        </label>
-        <label>How many?
-          <input type="number" name="quantity" value="300" min="1" step="1">
-        </label>
-      </div>
-
-      <div class="field-row">
-        <label>Length<input type="number" name="item_l" step="any" min="0"></label>
-        <label>Width<input type="number" name="item_w" step="any" min="0"></label>
-        <label>Height<input type="number" name="item_h" step="any" min="0"></label>
-        <label>Units
-          <select name="dim_unit">
-            <option value="m">metres</option>
-            <option value="ft">feet</option>
-          </select>
-        </label>
-        <label class="wide">Don't stack above
-          <input type="number" name="max_stack" min="1" step="1" placeholder="no limit">
-        </label>
-      </div>
-    </form>
-
-    <div id="calc-results"></div>
   </section>
 
 </main>
