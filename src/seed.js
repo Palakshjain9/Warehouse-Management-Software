@@ -68,6 +68,17 @@ function placeholderDrawing(extentX, extentY) {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
 
+// Render's free plan starts every deploy on a fresh filesystem, so the database
+// is empty again and the customer page has nothing to show — no spaces, no plan.
+// While this is a prototype, fill it rather than hand a visitor an empty site.
+// Once real spaces are entered and the data is kept properly, drop this.
+export function seedIfEmpty() {
+  const { n } = db.prepare('SELECT COUNT(*) AS n FROM spaces').get();
+  if (n > 0) return false;
+  seedDemoData();
+  return true;
+}
+
 export function seedDemoData() {
   clearAll();
 

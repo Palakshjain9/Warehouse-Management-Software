@@ -7,6 +7,7 @@ import dashboardRouter from './src/routes/dashboard.js';
 import demoRouter from './src/routes/demo.js';
 import planRouter from './src/routes/plan.js';
 import publicRouter from './src/routes/public.js';
+import { seedIfEmpty } from './src/seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -36,5 +37,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+  if (seedIfEmpty()) console.log('No spaces on record — loaded the sample area.');
   console.log(`Basement Storage running at http://localhost:${PORT}`);
 });
