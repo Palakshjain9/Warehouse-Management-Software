@@ -3,38 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Book a space</title>
+<title>Book storage space</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="book-body">
 
 <header class="book-header">
-  <h1>Book a space</h1>
+  <h1>Basement Storage</h1>
   <ol class="steps">
-    <li data-step="1" class="current">Pick a space</li>
-    <li data-step="2">What you're storing</li>
-    <li data-step="3">Confirm</li>
+    <li data-step="1" class="current">Dates</li>
+    <li data-step="2">Pick a space</li>
+    <li data-step="3">Your goods</li>
+    <li data-step="4">Checkout</li>
   </ol>
 </header>
 
 <main class="book-main">
 
   <section id="step-1" class="book-step active">
-    <p class="intro-line" id="pick-hint">
-      Tap a marked area on the plan to pick it. Press and hold an area to see its floor
-      space and height first.
+    <h2>When do you need the space?</h2>
+    <p class="intro-line">
+      Tell us the dates first — which spaces are free depends on when you want them.
     </p>
-    <div id="book-stage"></div>
-    <div id="book-detail"></div>
+
+    <form id="dates-form" class="calc-form" autocomplete="off">
+      <div class="field-row">
+        <label class="grow">Starting from
+          <input type="date" name="start_date" required>
+        </label>
+        <label class="grow">For how many days
+          <input type="number" name="days" value="7" min="1" max="365" step="1" required>
+        </label>
+      </div>
+      <p class="muted-line" id="dates-summary"></p>
+    </form>
+
+    <div class="book-actions">
+      <span></span>
+      <button class="primary" data-action="to-step-2">See what's free</button>
+    </div>
   </section>
 
   <section id="step-2" class="book-step">
+    <div class="chosen-bar" id="dates-bar"></div>
+
+    <p class="intro-line">
+      Tap a space on the plan to pick it. Press and hold to see its floor area and height
+      first. Red spaces are already booked for these dates.
+    </p>
+
+    <div class="plan-legend">
+      <span><i class="swatch is-free"></i> Available</span>
+      <span><i class="swatch is-chosen"></i> Your pick</span>
+      <span><i class="swatch is-taken"></i> Booked</span>
+    </div>
+
+    <div id="book-stage"></div>
+    <div id="book-detail"></div>
+
+    <div class="book-actions">
+      <button data-action="back-to-1">Change dates</button>
+      <span></span>
+    </div>
+  </section>
+
+  <section id="step-3" class="book-step">
     <div class="chosen-bar" id="chosen-bar"></div>
 
     <h2>What are you planning to store?</h2>
     <p class="intro-line">
-      A rough idea is enough. If you know the exact size of one item, tell us and we can
-      be more precise about whether it fits.
+      A rough idea is enough. If you know the exact size of one item, tell us and we can be
+      more precise about whether it fits.
     </p>
 
     <form id="goods-form" class="calc-form" autocomplete="off">
@@ -57,15 +96,9 @@
       </div>
 
       <div class="field-row hidden" id="exact-fields">
-        <label>Length
-          <input type="number" name="item_l" step="any" min="0">
-        </label>
-        <label>Width
-          <input type="number" name="item_w" step="any" min="0">
-        </label>
-        <label>Height
-          <input type="number" name="item_h" step="any" min="0">
-        </label>
+        <label>Length<input type="number" name="item_l" step="any" min="0"></label>
+        <label>Width<input type="number" name="item_w" step="any" min="0"></label>
+        <label>Height<input type="number" name="item_h" step="any" min="0"></label>
         <label>Units
           <select name="dim_unit">
             <option value="m">metres</option>
@@ -78,15 +111,15 @@
     <div id="fit-verdict"></div>
 
     <div class="book-actions">
-      <button data-action="back-to-1">Back</button>
-      <button class="primary" data-action="to-step-3">Continue</button>
+      <button data-action="back-to-2">Back</button>
+      <button class="primary" data-action="to-checkout">Continue to checkout</button>
     </div>
   </section>
 
-  <section id="step-3" class="book-step">
-    <div class="chosen-bar" id="chosen-bar-3"></div>
+  <section id="step-4" class="book-step">
+    <div id="hold-timer" class="hold-timer"></div>
 
-    <h2>Confirm your booking</h2>
+    <h2>Checkout</h2>
     <div id="summary"></div>
 
     <form id="confirm-form" class="calc-form" autocomplete="off">
@@ -98,30 +131,32 @@
           <input type="text" name="contact">
         </label>
       </div>
-      <div class="field-row">
-        <label>Starting from
-          <input type="date" name="start_date" required>
-        </label>
-        <label>For how many days
-          <input type="number" name="days" value="30" min="1" step="1" required>
-        </label>
-      </div>
     </form>
 
-    <div id="cost-block"></div>
     <p class="error" id="confirm-error"></p>
 
     <div class="book-actions">
-      <button data-action="back-to-2">Back</button>
-      <button class="primary" data-action="submit-booking">Confirm and pay</button>
+      <button data-action="cancel-hold">Cancel</button>
+      <button class="primary" data-action="pay">Pay and confirm</button>
     </div>
   </section>
 
   <section id="step-done" class="book-step">
     <div class="empty-state">
-      <h2>Booking recorded</h2>
+      <h2>Booking confirmed</h2>
       <p id="done-text"></p>
       <div id="payment-stub"></div>
+    </div>
+  </section>
+
+  <section id="step-expired" class="book-step">
+    <div class="empty-state">
+      <h2>That hold ran out</h2>
+      <p id="expired-text">
+        We only hold a space for a couple of minutes so it doesn't sit blocked for
+        everyone else. Nothing has been charged — please pick again.
+      </p>
+      <button class="primary" data-action="start-over">Pick again</button>
     </div>
   </section>
 

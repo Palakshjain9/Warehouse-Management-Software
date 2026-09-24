@@ -31,7 +31,7 @@ router.put('/image', (req, res) => {
 
 router.delete('/image', (req, res) => {
   db.prepare('DELETE FROM plan_image WHERE id = 1').run();
-  db.prepare('UPDATE zones SET hot_x = NULL, hot_y = NULL, hot_w = NULL, hot_h = NULL').run();
+  db.prepare('UPDATE spaces SET hot_x = NULL, hot_y = NULL, hot_w = NULL, hot_h = NULL').run();
   res.json({ ok: true });
 });
 

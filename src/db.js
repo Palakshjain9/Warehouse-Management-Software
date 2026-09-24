@@ -7,10 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new DatabaseSync(path.join(dataDir, 'warehouse.db'));
+const db = new DatabaseSync(path.join(dataDir, 'storage.db'));
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS zones (
+  CREATE TABLE IF NOT EXISTS spaces (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     size_sqft REAL,
@@ -18,7 +18,7 @@ db.exec(`
     width_ft REAL,
     height_ft REAL,
     wall_support INTEGER NOT NULL DEFAULT 0,
-    list_rate_per_day REAL,
+    price_per_day REAL,
     hot_x REAL,
     hot_y REAL,
     hot_w REAL,
@@ -27,30 +27,25 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
-  CREATE TABLE IF NOT EXISTS vendors (
+  CREATE TABLE IF NOT EXISTS bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    space_id INTEGER NOT NULL REFERENCES spaces(id),
+    customer_name TEXT,
     contact TEXT,
-    notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS leases (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    zone_id INTEGER NOT NULL REFERENCES zones(id),
-    vendor_id INTEGER NOT NULL REFERENCES vendors(id),
-    daily_rate REAL NOT NULL,
     start_date TEXT NOT NULL,
-    end_date TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS payments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    lease_id INTEGER NOT NULL REFERENCES leases(id),
-    amount REAL NOT NULL,
-    paid_date TEXT NOT NULL,
-    notes TEXT,
+    days INTEGER NOT NULL,
+    end_date TEXT NOT NULL,
+    quantity INTEGER,
+    item_label TEXT,
+    item_l_ft REAL,
+    item_w_ft REAL,
+    item_h_ft REAL,
+    estimated_capacity INTEGER,
+    fit_warning TEXT,
+    amount REAL,
+    status TEXT NOT NULL DEFAULT 'held',
+    held_until TEXT,
+    paid_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -59,39 +54,6 @@ db.exec(`
     data_url TEXT NOT NULL,
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
-  CREATE TABLE IF NOT EXISTS bookings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    zone_id INTEGER NOT NULL REFERENCES zones(id),
-    customer_name TEXT NOT NULL,
-    contact TEXT,
-    quantity INTEGER,
-    item_label TEXT,
-    item_l_ft REAL,
-    item_w_ft REAL,
-    item_h_ft REAL,
-    start_date TEXT,
-    estimated_capacity INTEGER,
-    fit_warning TEXT,
-    status TEXT NOT NULL DEFAULT 'awaiting_payment',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
 `);
-
-// Databases created before spaces had dimensions still need the newer columns.
-for (const [column, definition] of [
-  ['length_ft', 'REAL'],
-  ['width_ft', 'REAL'],
-  ['height_ft', 'REAL'],
-  ['wall_support', 'INTEGER NOT NULL DEFAULT 0'],
-  ['list_rate_per_day', 'REAL'],
-  ['hot_x', 'REAL'],
-  ['hot_y', 'REAL'],
-  ['hot_w', 'REAL'],
-  ['hot_h', 'REAL'],
-]) {
-  const exists = db.prepare('SELECT 1 FROM pragma_table_info(?) WHERE name = ?').get('zones', column);
-  if (!exists) db.exec(`ALTER TABLE zones ADD COLUMN ${column} ${definition}`);
-}
 
 export default db;

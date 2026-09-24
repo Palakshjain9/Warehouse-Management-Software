@@ -3,19 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Warehouse Rental</title>
+<title>Basement Storage — admin</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <h1>Warehouse Rental</h1>
+  <h1>Basement Storage</h1>
   <nav>
     <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
     <button class="tab-btn" data-tab="plan">Floor plan</button>
-    <button class="tab-btn" data-tab="zones">Spaces</button>
-    <button class="tab-btn" data-tab="vendors">Vendors</button>
-    <button class="tab-btn" data-tab="leases">Leases</button>
-    <button class="tab-btn" data-tab="bookings">Enquiries</button>
+    <button class="tab-btn" data-tab="spaces">Spaces</button>
+    <button class="tab-btn" data-tab="bookings">Bookings</button>
     <button class="tab-btn" data-tab="calculator">Space picker</button>
   </nav>
 </header>
@@ -25,24 +23,24 @@
   <section id="dashboard" class="tab-panel active">
     <div id="empty-state" class="empty-state hidden">
       <h2>Nothing in here yet</h2>
-      <p>Load a sample basement to see how it all works — six spaces, four vendors,
-         active and closed leases with part-payments already on the books.</p>
+      <p>Load the sample area to see how it all works — nine spaces in a 60 × 54 ft
+         basement, with bookings already on the books across different dates.</p>
       <button class="primary" data-action="seed">Load sample data</button>
     </div>
 
     <div id="dashboard-content">
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-value" id="stat-zones">–</div>
+          <div class="stat-value" id="stat-spaces">–</div>
           <div class="stat-label">Total spaces</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-occupied">–</div>
-          <div class="stat-label">Occupied</div>
+          <div class="stat-value" id="stat-booked">–</div>
+          <div class="stat-label">Booked today</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="stat-vacant">–</div>
-          <div class="stat-label">Vacant</div>
+          <div class="stat-value" id="stat-available">–</div>
+          <div class="stat-label">Free today</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="stat-sqft">–</div>
@@ -50,22 +48,19 @@
         </div>
         <div class="stat-card highlight">
           <div class="stat-value" id="stat-revenue">–</div>
-          <div class="stat-label">Rent per day (active leases)</div>
+          <div class="stat-label">Confirmed bookings value</div>
         </div>
-        <div class="stat-card warn">
-          <div class="stat-value" id="stat-outstanding">–</div>
-          <div class="stat-label">Outstanding dues</div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-upcoming">–</div>
+          <div class="stat-label">Starting later</div>
         </div>
       </div>
 
-      <h2>Active leases</h2>
+      <h2>Booked today</h2>
       <div class="table-wrap">
-        <table id="active-leases-table">
+        <table id="today-table">
           <thead>
-            <tr>
-              <th>Space</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>Days</th>
-              <th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
-            </tr>
+            <tr><th>Space</th><th>Customer</th><th>Dates</th><th>Days</th><th>Amount</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -76,6 +71,7 @@
       <span>Sample data</span>
       <button data-action="seed">Load sample data</button>
       <button data-action="reset" class="danger-text">Clear everything</button>
+      <a class="link-button" href="/book" target="_blank">Open customer view</a>
     </div>
   </section>
 
@@ -92,28 +88,12 @@
     <div id="plan-list"></div>
   </section>
 
-  <section id="bookings" class="tab-panel">
-    <h2>Enquiries from the booking page</h2>
-    <p class="intro-line">
-      What customers picked on <a href="/book" target="_blank">the booking page</a>.
-      Nothing here is a lease yet — create one on the Leases tab once you've agreed terms.
-    </p>
-    <div class="table-wrap">
-      <table id="bookings-table">
-        <thead>
-          <tr><th>When</th><th>Space</th><th>Customer</th><th>Wants to store</th><th>From</th><th>Fit</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section id="zones" class="tab-panel">
+  <section id="spaces" class="tab-panel">
     <h2>Add a space</h2>
-    <form id="zone-form" class="calc-form">
+    <form id="space-form" class="calc-form">
       <div class="field-row">
         <label class="grow">Name
-          <input type="text" name="name" placeholder="e.g. Bay A1" required>
+          <input type="text" name="name" placeholder="e.g. A1" required>
         </label>
         <label>Length (ft)
           <input type="number" name="length_ft" min="0" step="any" required>
@@ -127,10 +107,10 @@
       </div>
       <div class="field-row">
         <label class="grow">Wall support
-          <select name="wall_support" id="zone-wall-select"></select>
+          <select name="wall_support" id="space-wall-select"></select>
         </label>
-        <label>Rate per day
-          <input type="number" name="list_rate_per_day" min="0" step="any" placeholder="₹ / day">
+        <label>Price per day
+          <input type="number" name="price_per_day" min="0" step="any" placeholder="₹ / day">
         </label>
         <label class="grow">Notes
           <input type="text" name="notes" placeholder="Optional">
@@ -138,59 +118,29 @@
         <button type="submit" class="primary">Add space</button>
       </div>
     </form>
-    <p class="error" id="zone-error"></p>
+    <p class="error" id="space-error"></p>
 
     <h2>All spaces</h2>
     <div class="table-wrap">
-      <table id="zones-table">
+      <table id="spaces-table">
         <thead>
-          <tr><th>Name</th><th>Dimensions</th><th>Floor</th><th>Volume</th><th>Walls</th><th>Rate/day</th><th>Status</th><th></th></tr>
+          <tr><th>Name</th><th>Dimensions</th><th>Floor</th><th>Volume</th><th>Walls</th><th>Price/day</th><th>Today</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
   </section>
 
-  <section id="vendors" class="tab-panel">
-    <h2>Add a vendor</h2>
-    <form id="vendor-form" class="inline-form">
-      <input type="text" name="name" placeholder="Vendor name" required>
-      <input type="text" name="contact" placeholder="Contact (phone/email)">
-      <input type="text" name="notes" placeholder="Notes (optional)">
-      <button type="submit">Add vendor</button>
-    </form>
-    <p class="error" id="vendor-error"></p>
-
-    <h2>All vendors</h2>
+  <section id="bookings" class="tab-panel">
+    <h2>Bookings</h2>
+    <p class="intro-line">
+      Everything booked through <a href="/book" target="_blank">the customer page</a>.
+      A held booking is someone mid-checkout — it frees itself up if they don't finish.
+    </p>
     <div class="table-wrap">
-      <table id="vendors-table">
+      <table id="bookings-table">
         <thead>
-          <tr><th>Name</th><th>Contact</th><th>Leases</th><th>Notes</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section id="leases" class="tab-panel">
-    <h2>Create a lease</h2>
-    <form id="lease-form" class="inline-form">
-      <select name="zone_id" id="lease-zone-select" required></select>
-      <select name="vendor_id" id="lease-vendor-select" required></select>
-      <input type="number" name="daily_rate" placeholder="Rate/day" min="0" step="any" required>
-      <input type="date" name="start_date" required>
-      <button type="submit">Create lease</button>
-    </form>
-    <p class="error" id="lease-error"></p>
-
-    <h2>All leases</h2>
-    <div class="table-wrap">
-      <table id="leases-table">
-        <thead>
-          <tr>
-            <th>Space</th><th>Vendor</th><th>Rate/day</th><th>Start</th><th>End</th>
-            <th>Days</th><th>Accrued</th><th>Paid</th><th>Balance</th><th></th>
-          </tr>
+          <tr><th>Space</th><th>Customer</th><th>Dates</th><th>Days</th><th>Storing</th><th>Amount</th><th>Status</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -200,9 +150,8 @@
   <section id="calculator" class="tab-panel">
     <h2>Which space fits?</h2>
     <p class="intro-line">
-      Say what you're storing and roughly how big one of them is. This works out how many
-      each space can hold, using that space's own height and how much of its floor you
-      actually get to use once you allow for getting at the goods.
+      Your own version of the customer's fit check. Say what's being stored and roughly how
+      big one of them is, and this works out how many each space can hold.
     </p>
 
     <form id="calc-form" class="calc-form" autocomplete="off">
@@ -216,15 +165,9 @@
       </div>
 
       <div class="field-row">
-        <label>Length
-          <input type="number" name="item_l" step="any" min="0">
-        </label>
-        <label>Width
-          <input type="number" name="item_w" step="any" min="0">
-        </label>
-        <label>Height
-          <input type="number" name="item_h" step="any" min="0">
-        </label>
+        <label>Length<input type="number" name="item_l" step="any" min="0"></label>
+        <label>Width<input type="number" name="item_w" step="any" min="0"></label>
+        <label>Height<input type="number" name="item_h" step="any" min="0"></label>
         <label>Units
           <select name="dim_unit">
             <option value="m">metres</option>
@@ -234,13 +177,6 @@
         <label class="wide">Don't stack above
           <input type="number" name="max_stack" min="1" step="1" placeholder="no limit">
         </label>
-      </div>
-
-      <div class="field-row">
-        <label class="grow">Indicative rate
-          <input type="number" name="rate_sqft" step="any" min="0" placeholder="per sq ft per day">
-        </label>
-        <span class="unit-suffix" id="rate-hint"></span>
       </div>
     </form>
 

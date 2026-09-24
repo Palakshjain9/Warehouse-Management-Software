@@ -455,9 +455,23 @@ tr.row-ended td { color: var(--muted); }
 
 .hot-box.selected { border-width: 3px; }
 .hot-box.pickable { cursor: pointer; }
+
+/* The three states a customer sees: free, their own pick, and gone. */
 .hot-box.is-free { border-color: var(--good); background: rgba(26, 138, 95, 0.18); }
-.hot-box.is-taken { border-color: var(--warn); background: rgba(192, 57, 43, 0.16); }
-.hot-box.chosen { border-width: 4px; border-color: var(--accent); background: rgba(47, 111, 237, 0.24); }
+.hot-box.is-taken { border-color: var(--warn); background: rgba(192, 57, 43, 0.18); cursor: not-allowed; }
+.hot-box.is-chosen {
+  border-color: var(--accent);
+  border-width: 4px;
+  background: rgba(47, 111, 237, 0.26);
+}
+
+.plan-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.plan-legend span { display: flex; align-items: center; gap: 6px; }
+
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid; }
+.swatch.is-free { background: #eaf3ea; border-color: var(--good); }
+.swatch.is-taken { background: #fdeeea; border-color: var(--warn); }
+.swatch.is-chosen { background: #e3ecfd; border-color: var(--accent); }
 
 #draw-box {
   position: absolute;
@@ -601,6 +615,34 @@ tr.row-ended td { color: var(--muted); }
 .ok-notice { background: #eaf3ea; color: #14623f; border: 1px solid #c4e0d0; }
 .info-notice { background: #eef3fd; color: #1d4894; border: 1px solid #ccdcf8; }
 .payment-stub { text-align: left; margin-top: 16px; }
+
+/* ---- Hold timer ---- */
+.hold-timer:not(:empty) {
+  display: block;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: #eef3fd;
+  border: 1px solid #ccdcf8;
+  color: #1d4894;
+  font-size: 14px;
+  text-align: center;
+}
+
+.hold-timer.urgent:not(:empty) {
+  background: #fdeeea;
+  border-color: #f3cfc7;
+  color: #8c2c1f;
+}
+
+.hold-timer strong { font-variant-numeric: tabular-nums; font-size: 16px; }
+
+.badge.held { background: #eef3fd; color: #1d4894; }
+.badge.muted { background: var(--bg); color: var(--muted); }
+.warn-note { color: var(--warn); }
+
+.plan-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.plan-tools-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ---- Toast ---- */
 #toast {

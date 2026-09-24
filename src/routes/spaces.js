@@ -1,19 +1,9 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { todayStr } from '../calc.js';
+import { takenSpaceIds } from '../availability.js';
 
 const router = Router();
-
-const SELECT_ZONES = `
-  SELECT
-    z.id, z.name, z.size_sqft, z.length_ft, z.width_ft, z.height_ft, z.wall_support,
-    z.list_rate_per_day, z.hot_x, z.hot_y, z.hot_w, z.hot_h, z.notes,
-    (z.length_ft * z.width_ft * z.height_ft) AS volume_cuft,
-    l.id AS active_lease_id, l.daily_rate AS active_rate, l.start_date AS active_start,
-    v.id AS vendor_id, v.name AS vendor_name
-  FROM zones z
-  LEFT JOIN leases l ON l.zone_id = z.id AND l.end_date IS NULL
-  LEFT JOIN vendors v ON v.id = l.vendor_id
-`;
 
 function readDimensions(body, existing) {
   const pick = (key) => (body[key] === undefined ? existing?.[key] : Number(body[key]));
@@ -32,7 +22,13 @@ function readDimensions(body, existing) {
 }
 
 router.get('/', (req, res) => {
-  res.json(db.prepare(`${SELECT_ZONES} ORDER BY z.name COLLATE NOCASE`).all());
+  const spaces = db.prepare(`
+    SELECT *, (length_ft * width_ft * height_ft) AS volume_cuft
+    FROM spaces ORDER BY name COLLATE NOCASE
+  `).all();
+
+  const taken = takenSpaceIds(todayStr(), 1);
+  res.json(spaces.map(s => ({ ...s, booked_today: taken.has(s.id) })));
 });
 
 router.post('/', (req, res) => {
@@ -46,10 +42,10 @@ router.post('/', (req, res) => {
 
   try {
     const info = db.prepare(`
-      INSERT INTO zones (name, size_sqft, length_ft, width_ft, height_ft, wall_support, list_rate_per_day, notes)
+      INSERT INTO spaces (name, size_sqft, length_ft, width_ft, height_ft, wall_support, price_per_day, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(String(body.name).trim(), dims.sizeSqft, dims.length, dims.width, dims.height, dims.wall,
-           body.list_rate_per_day ? Number(body.list_rate_per_day) : null, body.notes || null);
+           body.price_per_day ? Number(body.price_per_day) : null, body.notes || null);
     res.status(201).json({ id: Number(info.lastInsertRowid) });
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) {
@@ -60,28 +56,28 @@ router.post('/', (req, res) => {
 });
 
 router.patch('/:id', (req, res) => {
-  const zone = db.prepare('SELECT * FROM zones WHERE id = ?').get(req.params.id);
-  if (!zone) return res.status(404).json({ error: 'Space not found' });
+  const space = db.prepare('SELECT * FROM spaces WHERE id = ?').get(req.params.id);
+  if (!space) return res.status(404).json({ error: 'Space not found' });
 
   const body = req.body ?? {};
-  const name = body.name === undefined ? zone.name : String(body.name).trim();
+  const name = body.name === undefined ? space.name : String(body.name).trim();
   if (!name) return res.status(400).json({ error: 'Name is required' });
 
-  const dims = readDimensions(body, zone);
+  const dims = readDimensions(body, space);
   if (dims.error) return res.status(400).json({ error: dims.error });
 
   try {
     db.prepare(`
-      UPDATE zones
+      UPDATE spaces
       SET name = ?, size_sqft = ?, length_ft = ?, width_ft = ?, height_ft = ?, wall_support = ?,
-          list_rate_per_day = ?, notes = ?
+          price_per_day = ?, notes = ?
       WHERE id = ?
     `).run(
       name, dims.sizeSqft, dims.length, dims.width, dims.height, dims.wall,
-      body.list_rate_per_day === undefined
-        ? zone.list_rate_per_day
-        : (body.list_rate_per_day ? Number(body.list_rate_per_day) : null),
-      body.notes === undefined ? zone.notes : (body.notes || null),
+      body.price_per_day === undefined
+        ? space.price_per_day
+        : (body.price_per_day ? Number(body.price_per_day) : null),
+      body.notes === undefined ? space.notes : (body.notes || null),
       req.params.id
     );
     res.json({ ok: true });
@@ -94,17 +90,15 @@ router.patch('/:id', (req, res) => {
 });
 
 // Hotspots are fractions of the drawing (0-1), so they survive the image being
-// displayed at any size. Kept apart from the main PATCH so mapping an area never has
+// displayed at any size. Kept apart from the main PATCH so marking an area never has
 // to satisfy dimension validation.
 router.patch('/:id/hotspot', (req, res) => {
-  const zone = db.prepare('SELECT id FROM zones WHERE id = ?').get(req.params.id);
-  if (!zone) return res.status(404).json({ error: 'Space not found' });
+  const space = db.prepare('SELECT id FROM spaces WHERE id = ?').get(req.params.id);
+  if (!space) return res.status(404).json({ error: 'Space not found' });
 
   const { hot_x, hot_y, hot_w, hot_h } = req.body ?? {};
-  const clearing = [hot_x, hot_y, hot_w, hot_h].some(v => v === null || v === undefined);
-
-  if (clearing) {
-    db.prepare('UPDATE zones SET hot_x = NULL, hot_y = NULL, hot_w = NULL, hot_h = NULL WHERE id = ?')
+  if ([hot_x, hot_y, hot_w, hot_h].some(v => v === null || v === undefined)) {
+    db.prepare('UPDATE spaces SET hot_x = NULL, hot_y = NULL, hot_w = NULL, hot_h = NULL WHERE id = ?')
       .run(req.params.id);
     return res.json({ ok: true });
   }
@@ -118,23 +112,24 @@ router.patch('/:id/hotspot', (req, res) => {
     return res.status(400).json({ error: 'That area is too small to tap — draw a bigger box' });
   }
 
-  db.prepare('UPDATE zones SET hot_x = ?, hot_y = ?, hot_w = ?, hot_h = ? WHERE id = ?')
+  db.prepare('UPDATE spaces SET hot_x = ?, hot_y = ?, hot_w = ?, hot_h = ? WHERE id = ?')
     .run(x, y, w, h, req.params.id);
   res.json({ ok: true });
 });
 
 router.delete('/:id', (req, res) => {
-  const zone = db.prepare('SELECT * FROM zones WHERE id = ?').get(req.params.id);
-  if (!zone) return res.status(404).json({ error: 'Space not found' });
+  const space = db.prepare('SELECT * FROM spaces WHERE id = ?').get(req.params.id);
+  if (!space) return res.status(404).json({ error: 'Space not found' });
 
-  const leaseCount = db.prepare('SELECT COUNT(*) AS c FROM leases WHERE zone_id = ?').get(req.params.id).c;
-  if (leaseCount > 0) {
+  const bookingCount = db.prepare('SELECT COUNT(*) AS c FROM bookings WHERE space_id = ?')
+    .get(req.params.id).c;
+  if (bookingCount > 0) {
     return res.status(400).json({
-      error: `This space has ${leaseCount} lease${leaseCount === 1 ? '' : 's'} on record. Delete those first if you really want it gone.`,
+      error: `This space has ${bookingCount} booking${bookingCount === 1 ? '' : 's'} on record. Delete those first if you really want it gone.`,
     });
   }
 
-  db.prepare('DELETE FROM zones WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM spaces WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
