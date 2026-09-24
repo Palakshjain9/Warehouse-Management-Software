@@ -92,6 +92,26 @@ The grid draws from `ITEM_PRESETS` in `public/fit.js`, and each entry points at 
 `public/items/`. Those are line illustrations at the moment — drop a photograph in under
 the same filename and the picker shows the photograph instead, no code change.
 
+## Who can reach the customer pages
+
+Set by the `CUSTOMER_ACCESS` environment variable. **Left unset, the customer side is
+locked** — both `/book` and `/book-new` answer with a short "not taking bookings yet" page,
+and every public API route refuses. The admin is untouched by this setting.
+
+| `CUSTOMER_ACCESS` | What happens |
+|-------------------|--------------|
+| unset or empty | **Locked.** Nobody can book. The default, so a deploy is never accidentally open. |
+| `open` | Open to anyone with the link. |
+| anything else | That word is an access code. Share the link as `…/book-new?key=<word>`; it's remembered in a cookie for 30 days, so the rest of the visit works without it. |
+
+On Render: **Environment → Add environment variable**, `CUSTOMER_ACCESS`, then the value.
+The service restarts and the setting takes effect; no code change and no redeploy needed.
+
+The lock is enforced on the server, not in the page, so it can't be clicked past: the HTML
+files are redirected to the checked routes rather than served straight off disk, and
+`/api/public/*` refuses without access. **The admin has no login at all** — anyone with
+that link still sees every customer's name, number and what they paid.
+
 ## The admin
 
 - **Dashboard** — spaces, booked and free today, value of confirmed bookings, what's
@@ -149,7 +169,8 @@ Amounts render as `₹` with Indian digit grouping, set at the top of `public/ap
 
 ## Not built yet
 
-Real payment processing, refunds, and any login — the admin is currently open to anyone
-with the link, which is fine for a prototype but not once customers can reach it. The real
+Real payment processing, refunds, and any login for the admin — it is open to anyone with
+the link, which is fine for a prototype but not once customers can reach it. The customer
+side can at least be closed off with `CUSTOMER_ACCESS` (above); the admin cannot. The real
 basement measurements are still to come: when they're settled, upload the drawing, mark the
 areas and edit the nine sample spaces into the real ones.

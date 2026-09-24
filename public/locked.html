@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Basement Storage</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .locked-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .locked-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 26px;
+    max-width: 440px;
+    width: 100%;
+    text-align: center;
+  }
+  .locked-card h1 { margin: 0 0 10px; font-size: 20px; }
+  .locked-card p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0 0 4px; }
+  .code-row { display: none; gap: 8px; margin-top: 20px; }
+  .code-row.on { display: flex; }
+  .code-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body class="book-body">
+
+<div class="locked-wrap">
+  <div class="locked-card">
+    <h1>Not taking bookings yet</h1>
+    <p id="line">
+      The basement isn't open for booking at the moment. Please check back a little later.
+    </p>
+    <form class="code-row" id="code-row">
+      <input type="text" id="code" placeholder="Access code" autocomplete="off" aria-label="Access code">
+      <button class="primary" type="submit">Go in</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Only offer the box when a code would actually open the door.
+  fetch('/api/public/access')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.code_required) return;
+      document.getElementById('line').textContent =
+        'This is still being tried out. If you have been given an access code, put it in below.';
+      document.getElementById('code-row').classList.add('on');
+    })
+    .catch(() => {});
+
+  document.getElementById('code-row').addEventListener('submit', e => {
+    e.preventDefault();
+    const key = document.getElementById('code').value.trim();
+    if (key) location.search = '?key=' + encodeURIComponent(key);
+  });
+</script>
+</body>
+</html>
