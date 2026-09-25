@@ -94,8 +94,9 @@ the same filename and the picker shows the photograph instead, no code change.
 
 ## The admin
 
-- **Dashboard** — spaces, booked and free today, value of confirmed bookings, what's
-  starting later.
+- **Dashboard** — spaces, booked and free today, what you have **collected**, what is
+  **still to collect**, the booked value, and what's starting later. Collected and booked
+  are separate figures because a booking taken over the phone may not be paid for yet.
 - **Floor plan** — upload a picture of your layout with the spaces marked on it, then drag
   a box over each one to make it tappable. Boxes are stored as a share of the picture, so
   they stay put at any screen size, and the overlay only tints an area rather than
@@ -103,8 +104,13 @@ the same filename and the picker shows the photograph instead, no code change.
   Only areas you have marked appear to customers.
 - **Spaces** — dimensions, wall support, price per day. Area and volume are worked out for
   you. A space with bookings on record can't be deleted by accident.
-- **Bookings** — everything booked through the customer page, including holds in flight and
-  the fit caution the customer saw. Cancel frees the space up again.
+- **Bookings** — **take a booking yourself** for someone who rang up or walked in: pick the
+  dates, pick the spaces off a grid that greys out whatever is already taken, and record
+  their name and number. Type an agreed amount to override the list price and it is split
+  back across the spaces in proportion to what each one lists at, so the parts still add up.
+  Tick *they have paid* now, or **Mark paid** later. Below that is everything on the books,
+  taken here or through the customer page, including holds in flight and the fit caution the
+  customer saw. Cancel frees the space up again.
 
 ## How the fit check works
 

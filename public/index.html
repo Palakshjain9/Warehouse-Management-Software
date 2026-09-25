@@ -46,8 +46,16 @@
           <div class="stat-label">Total sq ft</div>
         </div>
         <div class="stat-card highlight">
+          <div class="stat-value" id="stat-collected">–</div>
+          <div class="stat-label">Collected</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-value" id="stat-outstanding">–</div>
+          <div class="stat-label">Still to collect</div>
+        </div>
+        <div class="stat-card">
           <div class="stat-value" id="stat-revenue">–</div>
-          <div class="stat-label">Confirmed bookings value</div>
+          <div class="stat-label">Booked value</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="stat-upcoming">–</div>
@@ -131,10 +139,76 @@
   </section>
 
   <section id="bookings" class="tab-panel">
+    <h2>Take a booking</h2>
+    <p class="intro-line">
+      For someone who rang up or walked in. The same rules as the customer page — a space
+      already booked for those dates can't be picked twice.
+    </p>
+
+    <form id="booking-form" class="calc-form" autocomplete="off">
+      <div class="field-row">
+        <label>Starting from
+          <input type="date" name="start_date" required>
+        </label>
+        <label>For how many days
+          <input type="number" name="days" value="7" min="1" max="365" step="1" required>
+        </label>
+        <label class="grow">Which spaces
+          <span class="group-label" id="booking-dates-note"></span>
+        </label>
+      </div>
+
+      <div id="booking-spaces" class="pick-grid"></div>
+
+      <div class="field-row">
+        <label class="grow">Customer name
+          <input type="text" name="customer_name" required>
+        </label>
+        <label class="grow">Mobile number
+          <input type="tel" name="contact" placeholder="98200 00000">
+        </label>
+        <label class="grow">Email
+          <input type="email" name="email" placeholder="them@example.com">
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label>How many items
+          <input type="number" name="quantity" min="1" step="1" placeholder="optional">
+        </label>
+        <label class="grow">What are they storing
+          <input type="text" name="item_label" placeholder="optional — e.g. 25 kg bags">
+        </label>
+        <label>Amount
+          <input type="number" name="amount" min="0" step="any" placeholder="list price">
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="grow checkbox-field">
+          <span class="checkbox-line">
+            <input type="checkbox" name="whatsapp" checked>
+            That number is on WhatsApp
+          </span>
+        </label>
+        <label class="grow checkbox-field">
+          <span class="checkbox-line">
+            <input type="checkbox" name="paid">
+            They have paid
+          </span>
+        </label>
+      </div>
+
+      <p class="error" id="booking-error"></p>
+      <div id="booking-summary"></div>
+      <button class="primary" type="submit">Record this booking</button>
+    </form>
+
     <h2>Bookings</h2>
     <p class="intro-line">
-      Everything booked through <a href="/book" target="_blank">the customer page</a>.
-      A held booking is someone mid-checkout — it frees itself up if they don't finish.
+      Everything on the books, whether taken here or through
+      <a href="/book" target="_blank">the customer page</a>. A held booking is someone
+      mid-checkout — it frees itself up if they don't finish.
     </p>
     <div class="table-wrap">
       <table id="bookings-table">

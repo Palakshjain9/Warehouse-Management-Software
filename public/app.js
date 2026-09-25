@@ -22,6 +22,15 @@ function fmtDate(iso) {
   });
 }
 
+// Inclusive of the start day, the same way the server counts it: one day booked
+// means the start and end dates are the same.
+function endDateStr(start, days) {
+  const [y, m, d] = start.split('-').map(Number);
+  const end = new Date(Date.UTC(y, m - 1, d));
+  end.setUTCDate(end.getUTCDate() + Math.max(1, days) - 1);
+  return end.toISOString().slice(0, 10);
+}
+
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -67,6 +76,8 @@ async function loadDashboard() {
   $('#stat-booked').textContent = stats.bookedToday;
   $('#stat-available').textContent = stats.availableToday;
   $('#stat-sqft').textContent = Number(stats.totalSqft || 0).toLocaleString(LOCALE);
+  $('#stat-collected').textContent = money(stats.collected);
+  $('#stat-outstanding').textContent = money(stats.outstanding);
   $('#stat-revenue').textContent = money(stats.confirmedRevenue);
   $('#stat-upcoming').textContent = stats.upcoming;
 
@@ -82,7 +93,7 @@ async function loadDashboard() {
   const tbody = $('#today-table tbody');
   tbody.innerHTML = running.length
     ? running.map(b => `<tr>
-        <td data-label="Space">${escapeHtml(b.space_name)}</td>
+        <td data-label="Space">${escapeHtml(b.space_names.join(', '))}</td>
         <td data-label="Customer">${escapeHtml(b.customer_name || '—')}</td>
         <td data-label="Dates">${fmtDate(b.start_date)} – ${fmtDate(b.end_date)}</td>
         <td data-label="Days">${b.days}</td>
@@ -132,7 +143,7 @@ async function loadBookings() {
 
   tbody.innerHTML = state.bookings.length
     ? state.bookings.map(b => `<tr class="${b.status === 'confirmed' ? '' : 'row-ended'}">
-        <td data-label="Space">${escapeHtml(b.space_name)}</td>
+        <td data-label="Space">${escapeHtml(b.space_names.join(', '))}</td>
         <td data-label="Customer">
           ${escapeHtml(b.customer_name || '—')}
           ${b.contact ? `<div class="cell-note">${escapeHtml(b.contact)}</div>` : ''}
@@ -144,17 +155,154 @@ async function loadBookings() {
           : '—'}
           ${b.fit_warning ? `<div class="cell-note warn-note">${escapeHtml(b.fit_warning)}</div>` : ''}
         </td>
-        <td data-label="Amount">${b.amount ? money(b.amount) : '—'}</td>
+        <td data-label="Amount">
+          ${b.amount ? money(b.amount) : '—'}
+          ${b.status === 'confirmed'
+            ? `<div class="cell-note ${b.paid ? '' : 'warn-note'}">${b.paid ? 'paid' : 'not paid yet'}</div>`
+            : ''}
+        </td>
         <td data-label="Status">
           <span class="badge ${STATUS_BADGE[b.status] || 'muted'}">${escapeHtml(b.status)}</span>
           ${b.status === 'held' ? `<div class="cell-note">${b.seconds_remaining}s left</div>` : ''}
         </td>
         <td data-label="" class="row-actions">
-          ${b.status === 'confirmed' ? `<button data-action="booking-cancel" data-id="${b.id}">Cancel</button>` : ''}
-          <button data-action="booking-delete" data-id="${b.id}" class="danger-text">Delete</button>
+          ${b.status === 'confirmed' && !b.paid
+            ? `<button data-action="booking-paid" data-id="${b.group_id}">Mark paid</button>` : ''}
+          ${b.status === 'confirmed' ? `<button data-action="booking-cancel" data-id="${b.group_id}">Cancel</button>` : ''}
+          <button data-action="booking-delete" data-id="${b.group_id}" class="danger-text">Delete</button>
         </td>
       </tr>`).join('')
     : '<tr class="empty-row"><td colspan="8">No bookings yet.</td></tr>';
+}
+
+// ---- Taking a booking on the owner's side ----
+// Which spaces are free depends on the dates, so the picker is rebuilt whenever
+// they change. Picks that have gone unavailable are dropped rather than silently
+// carried into a booking the server would refuse.
+let bookingPicks = new Set();
+
+function bookingRange() {
+  const form = $('#booking-form');
+  return {
+    start: form.start_date.value,
+    days: Math.max(1, Math.floor(Number(form.days.value) || 1)),
+  };
+}
+
+async function renderBookingSpaces() {
+  const box = $('#booking-spaces');
+  const { start, days } = bookingRange();
+  if (!start) {
+    box.innerHTML = '<p class="muted-line">Pick a start date first.</p>';
+    $('#booking-dates-note').textContent = '';
+    return;
+  }
+
+  const spaces = await api(`/api/spaces?start=${start}&days=${days}`);
+  for (const id of [...bookingPicks]) {
+    const s = spaces.find(x => x.id === id);
+    if (!s || !s.free_for_range) bookingPicks.delete(id);
+  }
+
+  const free = spaces.filter(s => s.free_for_range).length;
+  $('#booking-dates-note').textContent =
+    `${fmtDate(start)} to ${fmtDate(endDateStr(start, days))} · ${free} of ${spaces.length} free`;
+
+  box.innerHTML = spaces.length
+    ? spaces.map(s => {
+        const picked = bookingPicks.has(s.id);
+        const cls = !s.free_for_range ? 'pick-cell gone' : picked ? 'pick-cell on' : 'pick-cell';
+        return `<button type="button" class="${cls}" data-action="booking-pick" data-id="${s.id}"
+                  ${s.free_for_range ? '' : 'disabled'}>
+            <span class="pick-name">${escapeHtml(s.name)}</span>
+            <span class="pick-sub">${s.size_sqft ? `${Number(s.size_sqft).toLocaleString(LOCALE)} sq ft` : ''}</span>
+            <span class="pick-sub">${s.free_for_range
+              ? (s.price_per_day ? `${money(s.price_per_day * days)} for ${days} day${days === 1 ? '' : 's'}` : 'no price set')
+              : 'already booked'}</span>
+          </button>`;
+      }).join('')
+    : '<p class="muted-line">No spaces yet — add one on the Spaces tab.</p>';
+
+  renderBookingSummary();
+}
+
+function renderBookingSummary() {
+  const box = $('#booking-summary');
+  const { days } = bookingRange();
+  const picked = state.spaces.filter(s => bookingPicks.has(s.id));
+
+  if (!picked.length) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const listed = picked.reduce((sum, s) => sum + (Number(s.price_per_day) || 0) * days, 0);
+  const typed = $('#booking-form').amount.value;
+  const agreed = typed === '' ? null : Number(typed);
+
+  box.innerHTML = `<div class="calc-block">
+      <div class="calc-row"><span>Space${picked.length > 1 ? 's' : ''}</span>
+        <span>${escapeHtml(picked.map(s => s.name).join(', '))}</span></div>
+      <div class="calc-row"><span>List price for ${days} day${days === 1 ? '' : 's'}</span>
+        <span>${money(listed)}</span></div>
+      ${agreed !== null && Number.isFinite(agreed) && agreed !== listed
+        ? `<div class="calc-row calc-total"><span>Agreed instead</span><span>${money(agreed)}</span></div>`
+        : `<div class="calc-row calc-total"><span>To charge</span><span>${money(listed)}</span></div>`}
+    </div>`;
+}
+
+function initBookingForm() {
+  const form = $('#booking-form');
+  form.start_date.value = todayStr();
+
+  // Only 'input' — a 'change' listener fires on blur, which would rebuild the
+  // picker and destroy the space button being clicked before its click lands.
+  form.addEventListener('input', e => {
+    if (e.target.name === 'start_date' || e.target.name === 'days') {
+      renderBookingSpaces().catch(err => toast(err.message, 'err'));
+    } else if (e.target.name === 'amount') {
+      renderBookingSummary();
+    }
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!bookingPicks.size) {
+      $('#booking-error').textContent = 'Pick at least one space.';
+      return;
+    }
+    const d = formToObject(form);
+    const ok = await submitForm(form, $('#booking-error'), () =>
+      api('/api/bookings', {
+        method: 'POST',
+        body: JSON.stringify({
+          space_ids: [...bookingPicks],
+          start_date: d.start_date,
+          days: d.days,
+          customer_name: d.customer_name,
+          contact: d.contact,
+          email: d.email,
+          whatsapp: !!d.whatsapp,
+          quantity: d.quantity,
+          item_label: d.item_label,
+          amount: d.amount,
+          paid: !!d.paid,
+        }),
+      }));
+
+    if (!ok) return;
+    const names = state.spaces.filter(s => bookingPicks.has(s.id)).map(s => s.name).join(', ');
+    bookingPicks.clear();
+    form.reset();
+    form.start_date.value = todayStr();
+    form.days.value = 7;
+    $('#booking-summary').innerHTML = '';
+    await refreshAll();
+    await renderBookingSpaces();
+    toast(`Booked ${names} for ${d.customer_name}`);
+  });
+
+  renderBookingSpaces().catch(() => {});
 }
 
 function openSpaceEdit(id) {
@@ -185,6 +333,8 @@ async function refreshAll() {
   await Promise.all([loadSpaces(), loadBookings()]);
   await loadDashboard();
   renderPlan();
+  // Cancelling or deleting a booking frees a space, so the picker has to follow.
+  await renderBookingSpaces().catch(() => {});
 }
 
 async function submitForm(form, errorEl, request) {
@@ -226,6 +376,24 @@ const actions = {
     await api(`/api/spaces/${id}`, { method: 'DELETE' });
     await refreshAll();
     toast('Space deleted');
+  },
+
+  'booking-pick'(id) {
+    const n = Number(id);
+    if (bookingPicks.has(n)) bookingPicks.delete(n);
+    else bookingPicks.add(n);
+    // Only the picked state changes, so repaint the cells rather than refetching.
+    $all('#booking-spaces .pick-cell').forEach(cell => {
+      if (cell.disabled) return;
+      cell.classList.toggle('on', bookingPicks.has(Number(cell.dataset.id)));
+    });
+    renderBookingSummary();
+  },
+
+  async 'booking-paid'(id) {
+    await api(`/api/bookings/${id}/paid`, { method: 'POST' });
+    await refreshAll();
+    toast('Marked paid');
   },
 
   async 'booking-cancel'(id) {
@@ -528,6 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
       api('/api/spaces', { method: 'POST', body: JSON.stringify(formToObject(form)) }));
     if (ok) { form.reset(); await refreshAll(); toast('Space added'); }
   });
+
+  initBookingForm();
 
   loadPlanImage();
   refreshAll();

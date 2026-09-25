@@ -345,6 +345,47 @@ tr.row-ended td { color: var(--muted); }
 .fit-name { font-weight: 600; }
 .cell-note { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: normal; }
 
+/* ---- Picking spaces when the owner takes a booking ---- */
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pick-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--good);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.pick-cell.on {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  border-width: 2px;
+  border-left-width: 4px;
+  padding: 8px 10px;
+  background: #f5f8ff;
+}
+
+.pick-cell.gone {
+  border-left-color: var(--warn);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pick-name { font-weight: 600; font-size: 14px; }
+.pick-sub { font-size: 12px; color: var(--muted); }
+
 /* ---- Layout drawing and hotspots ---- */
 #plan-frame, #book-frame {
   position: relative;

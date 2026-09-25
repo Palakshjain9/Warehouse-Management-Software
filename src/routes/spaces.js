@@ -28,7 +28,19 @@ router.get('/', (req, res) => {
   `).all();
 
   const taken = takenSpaceIds(todayStr(), 1);
-  res.json(spaces.map(s => ({ ...s, booked_today: taken.has(s.id) })));
+
+  // With dates on the query, also say what is free over that range — the booking
+  // form needs it, and "today" is the wrong question when booking ahead.
+  const wants = /^\d{4}-\d{2}-\d{2}$/.test(req.query.start || '');
+  const range = wants
+    ? takenSpaceIds(req.query.start, Math.min(365, Math.max(1, Math.floor(Number(req.query.days) || 1))))
+    : null;
+
+  res.json(spaces.map(s => ({
+    ...s,
+    booked_today: taken.has(s.id),
+    ...(range ? { free_for_range: !range.has(s.id) } : {}),
+  })));
 });
 
 router.post('/', (req, res) => {

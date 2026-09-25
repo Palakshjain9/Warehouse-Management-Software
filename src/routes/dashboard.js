@@ -13,8 +13,12 @@ router.get('/', (req, res) => {
   const today = todayStr();
   const bookedToday = takenSpaceIds(today, 1).size;
 
+  // Booked and collected are different questions once the owner can record a
+  // booking that hasn't been paid for yet.
   const confirmed = db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+    SELECT COALESCE(SUM(amount), 0) AS total,
+           COALESCE(SUM(CASE WHEN paid_at IS NOT NULL THEN amount ELSE 0 END), 0) AS collected,
+           COUNT(*) AS count
     FROM bookings WHERE status = 'confirmed'
   `).get();
 
@@ -29,6 +33,8 @@ router.get('/', (req, res) => {
     availableToday: stats.space_count - bookedToday,
     confirmedCount: confirmed.count,
     confirmedRevenue: confirmed.total,
+    collected: confirmed.collected,
+    outstanding: confirmed.total - confirmed.collected,
     upcoming,
   });
 });
